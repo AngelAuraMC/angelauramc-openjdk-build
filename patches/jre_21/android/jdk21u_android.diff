@@ -5,7 +5,7 @@ index 1fdd0143a..705b3e1f9 100644
 @@ -409,7 +409,8 @@ AC_DEFUN([FLAGS_SETUP_CFLAGS_HELPER],
    #### OS DEFINES, these should be independent on toolchain
    if test "x$OPENJDK_TARGET_OS" = xlinux; then
-     CFLAGS_OS_DEF_JVM="-DLINUX"
+     CFLAGS_OS_DEF_JVM="-DLINUX -D_FILE_OFFSET_BITS=64"
 -    CFLAGS_OS_DEF_JDK="-D_GNU_SOURCE -D_REENTRANT -D_LARGEFILE64_SOURCE"
 +    # CFLAGS_OS_DEF_JDK="-D_GNU_SOURCE -D_REENTRANT -D_LARGEFILE64_SOURCE"
 +    CFLAGS_OS_DEF_JDK="-D_GNU_SOURCE -D_REENTRANT -D_LARGEFILE64_SOURCE -D__USE_BSD"
@@ -165,7 +165,7 @@ index d80b804a2..fd2a8ed15 100644
  
 -ifeq ($(call isTargetOs, linux), true)
 +ifeq ($(call isTargetOs, android linux), true)
-   DUMP_SYMBOLS_CMD := $(NM) --defined-only *$(OBJ_SUFFIX)
+   DUMP_SYMBOLS_CMD := $(NM) $(NMFLAGS) --defined-only *$(OBJ_SUFFIX)
    ifneq ($(FILTER_SYMBOLS_PATTERN), )
      FILTER_SYMBOLS_PATTERN := $(FILTER_SYMBOLS_PATTERN)|
 diff --git a/make/hotspot/lib/JvmOverrideFiles.gmk b/make/hotspot/lib/JvmOverrideFiles.gmk
@@ -2284,7 +2284,7 @@ index 9371bc001..ab7dd0fc0 100644
  typedef int futimens_func(int, const struct timespec *);
  typedef int lutimes_func(const char *, const struct timeval *);
  typedef DIR* fdopendir_func(int);
-@@ -149,10 +150,46 @@ static fstatat64_func* my_fstatat64_func = NULL;
+@@ -149,13 +150,49 @@ static fstatat64_func* my_fstatat64_func = NULL;
  static unlinkat_func* my_unlinkat_func = NULL;
  static renameat_func* my_renameat_func = NULL;
  static futimesat_func* my_futimesat_func = NULL;
@@ -2292,6 +2292,9 @@ index 9371bc001..ab7dd0fc0 100644
  static futimens_func* my_futimens_func = NULL;
  static lutimes_func* my_lutimes_func = NULL;
  static fdopendir_func* my_fdopendir_func = NULL;
+ #if defined(__linux__)
+ static statx_func* my_statx_func = NULL;
+ #endif
  
 +#ifdef __ANDROID__
 +/*

@@ -1,8 +1,14 @@
-FROM ubuntu:23.10
+FROM ubuntu:22.04
 
 RUN apt-get update
 
+
+
 # Install dependencies
+RUN apt-get install -y wget
+
+# Cmake repositories to have an up to date version
+RUN wget -qO - https://apt.kitware.com/kitware-archive.sh | bash 
 
 # Raw tools
 RUN apt-get install -y \
@@ -23,7 +29,6 @@ RUN apt-get install -y \
     libxrender-dev \
     libxtst-dev \
     libxt-dev \
-    wget \
     gcc \
     g++ \
     clang \
