@@ -53,7 +53,7 @@ jobs:
 
   build_iosport:
     name: "Build for iOS aarch64"
-    runs-on: MacStadium
+    runs-on: J316sAP
     continue-on-error: true
     steps:
     - name: Checkout repository
@@ -67,7 +67,7 @@ jobs:
 
     - name: Build with CI build script
       run: |
-        export BUILD_IOS=1
+        export BUILD_IOS=1 J316SAP=1
         #brew install awk
         #echo "/opt/procursus/bin:/opt/procursus/local/bin:/Users/eilionoir/.local/bin:/opt/homebrew/bin:/Users/eilionoir/Library/Python/3.9/bin:/Library/Frameworks/Python.framework/Versions/3.10/bin:/usr/local/bin:/System/Cryptexes/App/usr/bin:/usr/bin:/bin:/usr/sbin:/sbin:/opt/X11/bin:/Library/Apple/usr/bin:/opt/procursus/games" > $GITHUB_PATH
         export PATH=/opt/procursus/bin:/opt/homebrew/bin:$PATH

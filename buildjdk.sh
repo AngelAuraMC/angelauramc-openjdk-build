@@ -49,7 +49,9 @@ else
   export LDFLAGS+=" -arch arm64"
   export BUILD_SYSROOT_CFLAGS="-isysroot ${themacsysroot}"
 
-  HOMEBREW_NO_AUTO_UPDATE=1 brew install ldid xquartz
+  if [[ "$J316SAP" != "1" ]]; then
+    HOMEBREW_NO_AUTO_UPDATE=1 brew install ldid xquartz
+  fi
 fi
 
 # fix building libjawt
