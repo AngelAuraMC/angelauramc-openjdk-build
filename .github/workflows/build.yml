@@ -60,7 +60,7 @@ jobs:
       fail-fast: false
 
     name: "Build Java ${{ matrix.version }} for iOS aarch64"
-    runs-on: MacStadium
+    runs-on: J316sAP
     continue-on-error: true
     steps:
       - name: Checkout repository
@@ -70,7 +70,7 @@ jobs:
         run: |
           export PATH=/opt/procursus/bin:/opt/homebrew/bin:$PATH
           export JAVA_HOME=$(/usr/libexec/java_home -v ${{ matrix.version }})
-          export BUILD_IOS=1
+          export BUILD_IOS=1 J316SAP=1
           export TARGET_VERSION=${{ matrix.version }}
           bash "1_ci_build_arch_aarch64.sh"
 

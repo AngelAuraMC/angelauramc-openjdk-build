@@ -77,7 +77,9 @@ else
   export LDFLAGS+="-arch arm64"
   export BUILD_SYSROOT_CFLAGS="-isysroot ${themacsysroot}"
 
-  HOMEBREW_NO_AUTO_UPDATE=1 brew install fontconfig ldid xquartz autoconf
+  if [[ "$J316SAP" != "1" ]]; then
+    HOMEBREW_NO_AUTO_UPDATE=1 brew install fontconfig ldid xquartz autoconf
+  fi 
 fi
 
 # fix building libjawt
