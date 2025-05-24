@@ -1,0 +1,18 @@
+// Changed java.runtime.name to include "Android" to support the detection scheme of sqlite-jdbc
+// See https://github.com/xerial/sqlite-jdbc/issues/1210
+// https://github.com/xerial/sqlite-jdbc/blob/79cc5feaf162679782e04e8691e55c7b6c90664f/src/main/java/org/sqlite/util/OSInfo.java#L120-L122
+
+diff --git a/make/conf/branding.conf b/make/conf/branding.conf
+index 0a8571e12..e27aebf2e 100644
+--- a/make/conf/branding.conf
++++ b/make/conf/branding.conf
+@@ -25,7 +25,7 @@
+ 
+ LAUNCHER_NAME=openjdk
+ PRODUCT_NAME=OpenJDK
+-PRODUCT_SUFFIX="Runtime Environment"
++PRODUCT_SUFFIX="Android Runtime Environment"
+ JDK_RC_PLATFORM_NAME=Platform
+ COMPANY_NAME=N/A
+ HOTSPOT_VM_DISTRO="OpenJDK"
+
