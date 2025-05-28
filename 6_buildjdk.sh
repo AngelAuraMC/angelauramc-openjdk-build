@@ -72,7 +72,7 @@ else
     --with-freetype=bundled \
     "
   AUTOCONF_x11arg="--with-x=/opt/X11/include/X11 --prefix=/usr/lib"
-  sameflags="-arch arm64 -DHEADLESS=1 -I$PWD/ios-missing-include -Wno-implicit-function-declaration -DTARGET_OS_OSX"
+  sameflags="-arch arm64 -DHEADLESS=1 -I$PWD/ios-missing-include -Wno-implicit-function-declaration"
   export CFLAGS+=" $sameflags"
   export LDFLAGS+="-arch arm64"
   export BUILD_SYSROOT_CFLAGS="-isysroot ${themacsysroot}"
