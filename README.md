@@ -1,16 +1,21 @@
-# mobile-openjdk8-build-multiarch 
+# angelauramc-openjdk-build 
 
-Based on http://openjdk.java.net/projects/mobile/android.html
+**This branch is for OpenJDK 17 and 21.**
+
+Based on [Java for Android](http://openjdk.java.net/projects/mobile/android.html) and [the PojavLauncher variant](https://github.com/PojavLauncherTeam/android-openjdk-build-multiarch)
 
 ## Building 
 
 ### Setup
 #### Android
-- Download Android NDK r10e from https://developer.android.com/ndk/downloads/older_releases.html and place it in this directory (Can't automatically download because of EULA)
-- **Warning**: Do not attempt to build use newer or older NDK, it will lead to compilation errors.
+**Note:** We use Ubuntu 24.04 LTS to build our JDKs. Adapt these dependencies to your distribution, it should build fine.
+- Install `autoconf`, `python3`, `python-is-python3`, `unzip`, `zip`, `systemtap-sdt-dev`, `libxtst-dev`, `libasound2-dev`, `libelf-dev`, `libfontconfig1-dev`, `libx11-dev`, `libxext-dev`, `libxrandr-dev`, `libxrender-dev`, `libxtst-dev`, `libxt-dev`.
+- If building JDK 17, install `openjdk-17-jdk`. For 21, `openjdk-21-jdk`.
+- Install Android NDK r27b.
 
 #### iOS
-- You should get latest Xcode (tested with Xcode 12).
+- Install latest Xcode on your Mac.
+- If building JDK 17, install JDK 17. For 21, install JDK 21.
 
 ### Platform and architecture specific environment variables
 <table>
