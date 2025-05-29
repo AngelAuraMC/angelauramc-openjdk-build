@@ -140,6 +140,12 @@ else
   jobs=$(nproc)
 fi
 
+# Failsafe environment variable for computers with too many cores
+# i.e. Cart's 7K62
+if [[ "$TOO_MANY_CORES" == "1" ]]; then
+  jobs=6
+fi
+
 echo Running ${jobs} jobs to build the jdk
 
 cd build/${JVM_PLATFORM}-${TARGET_JDK}-${JVM_VARIANTS}-${JDK_DEBUG_LEVEL}
