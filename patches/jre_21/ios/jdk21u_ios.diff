@@ -508,7 +508,7 @@ index 144ca8213..05771bc9b 100644
 +  int prot = exec&&os::Bsd::isRWXJITAvailable() ? PROT_READ|PROT_WRITE|PROT_EXEC : PROT_READ|PROT_WRITE;
  #if defined(__OpenBSD__)
    // XXX: Work-around mmap/MAP_FIXED bug temporarily on OpenBSD
-   Events::log(nullptr, "Protecting memory [" INTPTR_FORMAT "," INTPTR_FORMAT "] with protection modes %x", p2i(addr), p2i(addr+size), prot);
+   Events::log_memprotect(nullptr, "Protecting memory [" INTPTR_FORMAT "," INTPTR_FORMAT "] with protection modes %x", p2i(addr), p2i(addr+size), prot);
 @@ -1649,7 +1669,7 @@ bool os::remove_stack_guard_pages(char* addr, size_t size) {
  static char* anon_mmap(char* requested_addr, size_t bytes, bool exec) {
    // MAP_FIXED is intentionally left out, to leave existing mappings intact.
