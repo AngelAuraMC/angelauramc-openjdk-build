@@ -39,13 +39,13 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: "jdk${{ matrix.version }}-${{matrix.arch}}"
-          path: jdk${{ matrix.version }}*.tar.xz
+          path: jdk${{ matrix.version }}-android*.tar.xz
 
       - name: Upload JRE build output
         uses: actions/upload-artifact@v4
         with:
           name: "jre${{ matrix.version }}-${{matrix.arch}}"
-          path: jre${{ matrix.version }}*.tar.xz
+          path: jre${{ matrix.version }}-android*.tar.xz
 
       - name: Upload JRE debuginfo build output
         uses: actions/upload-artifact@v4
@@ -84,7 +84,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: "jre${{ matrix.version }}-ios-aarch64"
-          path: jre${{ matrix.version }}*.tar.xz
+          path: jre${{ matrix.version }}-ios*.tar.xz
 
       - name: Upload JRE debuginfo build output
         uses: actions/upload-artifact@v4

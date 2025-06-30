@@ -54,6 +54,8 @@ if [[ "$BUILD_IOS" == "1" ]]; then
   export HOTSPOT_DISABLE_DTRACE_PROBES=1
 
   export ANDROID_INCLUDE=$PWD/ios-missing-include
+
+  export TARGET_OS=ios
 else
 
 export JVM_PLATFORM=linux
@@ -88,4 +90,6 @@ export LD=$TOOLCHAIN/bin/ld
 export OBJCOPY=$TOOLCHAIN/bin/llvm-objcopy
 export RANLIB=$TOOLCHAIN/bin/llvm-ranlib
 export STRIP=$TOOLCHAIN/bin/llvm-strip
+
+export TARGET_OS=android
 fi
