@@ -128,7 +128,7 @@ index faf9d9f64..8828e855b 100644
 +address os::Bsd::debug_jit_mapping_mirrored = NULL;
 +
 +__attribute__((naked,noinline,optnone))
-+char* BreakGetJITMapping(char *map, size_t bytes) {
++char* BreakGetJITMapping(size_t bytes) {
 +    asm("brk #0x69 \n"
 +        "ret");
 +}
@@ -157,7 +157,7 @@ index faf9d9f64..8828e855b 100644
 +    if(MirrorMappedCodeCache) {
 +        if(DeviceRequiresTXMWorkaround()) {
 +            printf("[JIT26] Requesting %zu MB for JIT mapping\n", bytes/ (1024 * 1024));
-+            buf_rx = (vm_address_t)BreakGetJITMapping(NULL, bytes);
++            buf_rx = (vm_address_t)BreakGetJITMapping(bytes);
 +        }
 +        if(buf_rx) {
 +            printf("[JIT26] Got JIT mapping %p from debugger\n", (void*)buf_rx);
@@ -552,7 +552,7 @@ index 02a42fc0d..bda6e4f3e 100644
    }
  
    void initialize(address code_start, csize_t code_size) {
-+    code_start = os::Bsd::mirrored_find_rx(code_start);
++    code_start = mirror_x(code_start);
      _total_start = code_start;
      _total_size  = code_size;
      // Initialize the main section:
