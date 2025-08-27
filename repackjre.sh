@@ -27,7 +27,7 @@ compress_jars(){
 makearch () {
   echo "Making $2...";
   cd "$work";
-  tar xf $(find "$in" -name jre8-$2-*release.tar.xz) > /dev/null;
+  tar xf $(find "$in" -name jre8-android-$2-*release.tar.xz) > /dev/null;
   
   # Remove unused stuff before moving it
   rm bin/rmid
