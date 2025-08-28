@@ -29,7 +29,7 @@ copyjvmlib() {
 makearch () {
   echo "Making $2...";
   cd "$work";
-  tar xf $(find "$in" -name jre${TARGET_VERSION}-$2-*release.tar.xz) > /dev/null 2>&1;
+  tar xf $(find "$in" -name jre${TARGET_VERSION}-android-$2-*release.tar.xz) > /dev/null 2>&1;
   mv bin "$work1"/;
   mkdir -p "$work1"/lib;
   
@@ -57,7 +57,7 @@ makearch () {
 makeuni () {
   echo "Making universal...";
   cd "$work";
-  tar xf $(find "$in" -name jre${TARGET_VERSION}-arm64-*release.tar.xz) > /dev/null 2>&1;
+  tar xf $(find "$in" -name jre${TARGET_VERSION}-android-arm64-*release.tar.xz) > /dev/null 2>&1;
   
   rm -rf bin;
   rm -rf lib/server;
