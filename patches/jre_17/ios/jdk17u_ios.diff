@@ -525,7 +525,7 @@ index e61469290..b3423fd81 100644
    static pthread_t main_thread(void)                                { return _main_thread; }
  
 diff --git a/src/hotspot/os/posix/signals_posix.cpp b/src/hotspot/os/posix/signals_posix.cpp
-index 895c3cc09..b77c925ba 100644
+index 1f5e4c422..ba4eeb401 100644
 --- a/src/hotspot/os/posix/signals_posix.cpp
 +++ b/src/hotspot/os/posix/signals_posix.cpp
 @@ -25,6 +25,7 @@
@@ -542,9 +542,9 @@ index 895c3cc09..b77c925ba 100644
  #include <signal.h>
 +#include <sys/mman.h>
  
+ #define SEGV_BNDERR_value 3
  
- static const char* get_signal_name(int sig, char* out, size_t outlen);
-@@ -584,6 +587,26 @@ int JVM_HANDLE_XXX_SIGNAL(int sig, siginfo_t* info,
+@@ -580,6 +582,25 @@ int JVM_HANDLE_XXX_SIGNAL(int sig, siginfo_t* info,
    ucontext_t* const uc = (ucontext_t*) ucVoid;
    Thread* const t = Thread::current_or_null_safe();
  
@@ -566,7 +566,6 @@ index 895c3cc09..b77c925ba 100644
 +      if (handled) return true;
 +    }
 +  }
-+
 +
    // Handle JFR thread crash protection.
    //  Note: this may cause us to longjmp away. Do not use any code before this
