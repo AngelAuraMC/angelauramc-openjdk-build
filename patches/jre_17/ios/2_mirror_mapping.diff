@@ -133,19 +133,6 @@ index 11aba1d33..c35a3a213 100644
    // Can be NULL if there is no free space in the code cache.
    if (s == NULL) {
      return NULL;
-diff --git a/src/hotspot/cpu/ppc/sharedRuntime_ppc.cpp b/src/hotspot/cpu/ppc/sharedRuntime_ppc.cpp
-index ab972771a..4be5a71ae 100644
---- a/src/hotspot/cpu/ppc/sharedRuntime_ppc.cpp
-+++ b/src/hotspot/cpu/ppc/sharedRuntime_ppc.cpp
-@@ -1227,7 +1227,7 @@ AdapterHandlerEntry* SharedRuntime::generate_i2c2i_adapters(MacroAssembler *masm
-   assert(!MacroAssembler::needs_explicit_null_check(oopDesc::klass_offset_in_bytes()),
-          "klass offset should reach into any page");
-   // Check for NULL argument if we don't have implicit null checks.
--  if (!ImplicitNullChecks || !os::zero_page_read_protected()) {
-+  if (!ImplicitNullChecks || !zero_page_read_protected()) {
-     if (TrapBasedNullChecks) {
-       __ trap_null_check(R3_ARG1);
-     } else {
 diff --git a/src/hotspot/os/bsd/os_bsd.cpp b/src/hotspot/os/bsd/os_bsd.cpp
 index 5ead2f154..e5ff68860 100644
 --- a/src/hotspot/os/bsd/os_bsd.cpp
@@ -1586,15 +1573,3 @@ index aac0dc884..c3d50e7fe 100644
    product_pd(uintx, ReservedCodeCacheSize,                                  \
            "Reserved code cache size (in bytes) - maximum code cache size")  \
            constraint(VMPageSizeConstraintFunc, AtParse)                     \
-diff --git a/src/java.base/share/native/launcher/main.c b/src/java.base/share/native/launcher/main.c
-index b734fe2ba..318c87ef9 100644
---- a/src/java.base/share/native/launcher/main.c
-+++ b/src/java.base/share/native/launcher/main.c
-@@ -74,6 +74,7 @@
- #endif  /* _MSC_VER > 1400 && _MSC_VER < 1600 */
- #endif  /* _MSC_VER */
- 
-+__attribute__((section("__DATA,__allow_alt_plat"))) uint64_t dummy;
- /*
-  * Entry point.
-  */
