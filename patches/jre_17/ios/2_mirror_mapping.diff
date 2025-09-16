@@ -320,7 +320,7 @@ index 5ead2f154..e5ff68860 100644
  }
  
 diff --git a/src/hotspot/os/bsd/os_bsd.hpp b/src/hotspot/os/bsd/os_bsd.hpp
-index b3423fd81..ad0dccf82 100644
+index e61469290..fe63e7c27 100644
 --- a/src/hotspot/os/bsd/os_bsd.hpp
 +++ b/src/hotspot/os/bsd/os_bsd.hpp
 @@ -25,6 +25,12 @@
@@ -336,55 +336,21 @@ index b3423fd81..ad0dccf82 100644
  // Bsd_OS defines the interface to Bsd operating systems
  
  // Information about the protection of the page at address '0' on this os.
-@@ -57,7 +63,11 @@ class Bsd {
+@@ -57,7 +63,12 @@ class Bsd {
    static bool hugetlbfs_sanity_check(bool warn, size_t page_size);
  
   public:
+-
 +  static address debug_jit_mapping_mirrored;
- 
++     
 +  static address mirrored_swap_wx(address addr);
 +  static address mirrored_find_rw(address addr);
 +  static address mirrored_find_rx(address addr);
-   static bool isRWXJITAvailable();
++  static bool isRWXJITAvailable();
    static void init_thread_fpu_state();
    static pthread_t main_thread(void)                                { return _main_thread; }
-diff --git a/src/hotspot/os/posix/signals_posix.cpp b/src/hotspot/os/posix/signals_posix.cpp
-index 6ee9ca58a..cdc2eb59e 100644
---- a/src/hotspot/os/posix/signals_posix.cpp
-+++ b/src/hotspot/os/posix/signals_posix.cpp
-@@ -578,20 +578,18 @@ int JVM_HANDLE_XXX_SIGNAL(int sig, siginfo_t* info,
-   // Hopefully placing W^X handing here is safe enough, maybe check repeat?
-   if (!os::Bsd::isRWXJITAvailable() && sig == SIGBUS) {
-     address pc = (address) os::Posix::ucontext_get_pc(uc);
--    //static address last_pc, last_si_addr;
--    if (pc == info->si_addr) { //(pc >= CodeCache::low_bound() && pc < CodeCache::high_bound()) {
--    //(CodeCache::contains(pc) || thread->thread_state() == _thread_in_Java) {
--        //if (last_pc != pc) {
--        //   last_pc = pc;
--           bool handled = !mprotect((address) ((uintptr_t)pc & -PAGE_SIZE), PAGE_SIZE, PROT_READ | PROT_EXEC);
--           if (handled) return true;
--        //}
--    } else if (info->si_addr >= CodeCache::low_bound() && info->si_addr < CodeCache::high_bound()) {
--      //(CodeCache::contains(info->si_addr)) { // && last_si_addr != info->si_addr) {
--      //last_si_addr = (address) info->si_addr;
--      bool handled = !mprotect((address) ((uintptr_t)info->si_addr & -PAGE_SIZE), PAGE_SIZE, PROT_READ | PROT_WRITE);
--      if (handled) return true;
--    }
-+      if(!MirrorMappedCodeCache) {
-+          // build machine, do not run because of panic on M4
-+          if (pc == info->si_addr) {
-+              bool handled = !mprotect((address) ((uintptr_t)pc & -PAGE_SIZE), PAGE_SIZE, PROT_READ | PROT_EXEC);
-+              if (handled) return true;
-+          } else if (info->si_addr >= CodeCache::low_bound() && info->si_addr < CodeCache::high_bound()) {
-+              //(CodeCache::contains(info->si_addr)) { // && last_si_addr != info->si_addr) {
-+              //last_si_addr = (address) info->si_addr;
-+              bool handled = !mprotect((address) ((uintptr_t)info->si_addr & -PAGE_SIZE), PAGE_SIZE, PROT_READ | PROT_WRITE);
-+              if (handled) return true;
-+          }
-+      }
-   }
  
- 
+
 diff --git a/src/hotspot/os_cpu/bsd_aarch64/atomic_bsd_aarch64.hpp b/src/hotspot/os_cpu/bsd_aarch64/atomic_bsd_aarch64.hpp
 index 5a88b1a32..1ffc1137f 100644
 --- a/src/hotspot/os_cpu/bsd_aarch64/atomic_bsd_aarch64.hpp
@@ -515,15 +481,6 @@ index 2d219121c..aa1cc8d12 100644
                                   badCodeHeapFreeVal);)
  
    // Make certain that the new sections are all snugly inside the new blob.
-@@ -1102,7 +1102,7 @@ void CodeStrings::copy(CodeStrings& other) {
-   check_valid();
-   assert(is_null(), "Cannot copy onto non-empty CodeStrings");
-   CodeString* n = other._strings;
--  CodeString** ps = &_strings;
-+  CodeString** ps = mirror_w(&_strings);
-   CodeString* prev = NULL;
-   while (n != NULL) {
-     if (n->is_comment()) {
 diff --git a/src/hotspot/share/asm/codeBuffer.hpp b/src/hotspot/share/asm/codeBuffer.hpp
 index 89dc70ae2..96eca676d 100644
 --- a/src/hotspot/share/asm/codeBuffer.hpp
@@ -561,20 +518,6 @@ index 89dc70ae2..96eca676d 100644
  
    // Share a scratch buffer for relocinfo.  (Hacky; saves a resource allocation.)
    void initialize_shared_locs(relocInfo* buf, int length);
-@@ -289,10 +290,10 @@ private:
-   CodeString* find_last(intptr_t offset) const;
- 
-   void set_null_and_invalidate() {
--    _strings = NULL;
--    _strings_last = NULL;
-+    mirror_w_set(_strings) = NULL;
-+    mirror_w_set(_strings_last) = NULL;
- #ifdef ASSERT
--    _defunct = true;
-+    mirror_w_set(_defunct) = true;
- #endif
-   }
- #endif
 @@ -442,6 +443,7 @@ class CodeBuffer: public StackObj {
    }
  
@@ -584,19 +527,19 @@ index 89dc70ae2..96eca676d 100644
      _insts.initialize_outer(this,   SECT_INSTS);
      _stubs.initialize_outer(this,   SECT_STUBS);
 diff --git a/src/hotspot/share/code/codeBlob.cpp b/src/hotspot/share/code/codeBlob.cpp
-index 41a582f43..70262e27e 100644
+index 57990cdc5..b4eaee3a4 100644
 --- a/src/hotspot/share/code/codeBlob.cpp
 +++ b/src/hotspot/share/code/codeBlob.cpp
-@@ -163,7 +163,7 @@ RuntimeBlob::RuntimeBlob(
+@@ -161,7 +161,7 @@ RuntimeBlob::RuntimeBlob(
  
  void CodeBlob::flush() {
    FREE_C_HEAP_ARRAY(unsigned char, _oop_maps);
 -  _oop_maps = NULL;
 +  mirror_w_set(_oop_maps) = NULL;
-   NOT_PRODUCT(_strings.free();)
+   NOT_PRODUCT(_asm_remarks.clear());
+   NOT_PRODUCT(_dbg_strings.clear());
  }
- 
-@@ -171,9 +171,9 @@ void CodeBlob::set_oop_maps(OopMapSet* p) {
+@@ -170,9 +170,9 @@ void CodeBlob::set_oop_maps(OopMapSet* p) {
    // Danger Will Robinson! This method allocates a big
    // chunk of memory, its your job to free it.
    if (p != NULL) {
@@ -617,18 +560,7 @@ index 41a582f43..70262e27e 100644
  }
  
  
-@@ -262,16 +262,17 @@ BufferBlob* BufferBlob::create(const char* name, CodeBuffer* cb) {
-   assert(name != NULL, "must provide a name");
-   {
-     MutexLocker mu(CodeCache_lock, Mutex::_no_safepoint_check_flag);
-+    cb = mirror_w(cb);
-     blob = new (size) BufferBlob(name, size, cb);
-   }
-   // Track memory usage statistic after releasing CodeCache_lock
-   MemoryService::track_code_cache_memory_usage();
- 
--  return blob;
-+  return mirror_x(blob);
+@@ -271,7 +271,7 @@ BufferBlob* BufferBlob::create(const char* name, CodeBuffer* cb) {
  }
  
  void* BufferBlob::operator new(size_t s, unsigned size) throw() {
@@ -637,7 +569,7 @@ index 41a582f43..70262e27e 100644
  }
  
  void BufferBlob::free(BufferBlob *blob) {
-@@ -302,12 +303,13 @@ AdapterBlob* AdapterBlob::create(CodeBuffer* cb) {
+@@ -302,12 +302,13 @@ AdapterBlob* AdapterBlob::create(CodeBuffer* cb) {
    unsigned int size = CodeBlob::allocation_size(cb, sizeof(AdapterBlob));
    {
      MutexLocker mu(CodeCache_lock, Mutex::_no_safepoint_check_flag);
@@ -652,7 +584,7 @@ index 41a582f43..70262e27e 100644
  }
  
  void* VtableBlob::operator new(size_t s, unsigned size) throw() {
-@@ -317,7 +319,7 @@ void* VtableBlob::operator new(size_t s, unsigned size) throw() {
+@@ -317,7 +318,7 @@ void* VtableBlob::operator new(size_t s, unsigned size) throw() {
    // this context as we hold the CompiledICLocker. So we just don't handle code
    // cache exhaustion here; we leave that for a later allocation that does not
    // hold the CompiledICLocker.
@@ -661,7 +593,7 @@ index 41a582f43..70262e27e 100644
  }
  
  VtableBlob::VtableBlob(const char* name, int size) :
-@@ -353,7 +355,7 @@ VtableBlob* VtableBlob::create(const char* name, int buffer_size) {
+@@ -353,7 +354,7 @@ VtableBlob* VtableBlob::create(const char* name, int buffer_size) {
    // Track memory usage statistic after releasing CodeCache_lock
    MemoryService::track_code_cache_memory_usage();
  
@@ -670,7 +602,7 @@ index 41a582f43..70262e27e 100644
  }
  
  //----------------------------------------------------------------------------------------------------
-@@ -377,7 +379,7 @@ MethodHandlesAdapterBlob* MethodHandlesAdapterBlob::create(int buffer_size) {
+@@ -377,7 +378,7 @@ MethodHandlesAdapterBlob* MethodHandlesAdapterBlob::create(int buffer_size) {
    // Track memory usage statistic after releasing CodeCache_lock
    MemoryService::track_code_cache_memory_usage();
  
@@ -679,7 +611,7 @@ index 41a582f43..70262e27e 100644
  }
  
  //----------------------------------------------------------------------------------------------------
-@@ -420,14 +422,14 @@ RuntimeStub* RuntimeStub::new_runtime_stub(const char* stub_name,
+@@ -420,14 +421,14 @@ RuntimeStub* RuntimeStub::new_runtime_stub(const char* stub_name,
  void* RuntimeStub::operator new(size_t s, unsigned size) throw() {
    void* p = CodeCache::allocate(size, CodeBlobType::NonNMethod);
    if (!p) fatal("Initial size of CodeCache is too small");
@@ -696,7 +628,7 @@ index 41a582f43..70262e27e 100644
  }
  
  
-@@ -478,7 +480,7 @@ DeoptimizationBlob* DeoptimizationBlob::create(
+@@ -478,7 +479,7 @@ DeoptimizationBlob* DeoptimizationBlob::create(
  
    trace_new_stub(blob, "DeoptimizationBlob");
  
@@ -705,7 +637,7 @@ index 41a582f43..70262e27e 100644
  }
  
  
-@@ -511,7 +513,7 @@ UncommonTrapBlob* UncommonTrapBlob::create(
+@@ -511,7 +512,7 @@ UncommonTrapBlob* UncommonTrapBlob::create(
  
    trace_new_stub(blob, "UncommonTrapBlob");
  
@@ -714,7 +646,7 @@ index 41a582f43..70262e27e 100644
  }
  
  
-@@ -547,7 +549,7 @@ ExceptionBlob* ExceptionBlob::create(
+@@ -547,7 +548,7 @@ ExceptionBlob* ExceptionBlob::create(
  
    trace_new_stub(blob, "ExceptionBlob");
  
@@ -723,7 +655,7 @@ index 41a582f43..70262e27e 100644
  }
  
  
-@@ -582,7 +584,7 @@ SafepointBlob* SafepointBlob::create(
+@@ -582,7 +583,7 @@ SafepointBlob* SafepointBlob::create(
  
    trace_new_stub(blob, "SafepointBlob");
  
@@ -732,6 +664,7 @@ index 41a582f43..70262e27e 100644
  }
  
  
+
 diff --git a/src/hotspot/share/code/codeBlob.hpp b/src/hotspot/share/code/codeBlob.hpp
 index 104e04fba..d28844ebc 100644
 --- a/src/hotspot/share/code/codeBlob.hpp
@@ -958,18 +891,19 @@ index bf7e913a0..880fb14b7 100644
  
  
 diff --git a/src/hotspot/share/code/icBuffer.hpp b/src/hotspot/share/code/icBuffer.hpp
-index eb45e043b..1cc4dc18b 100644
+index cda634b42..323a0eee7 100644
 --- a/src/hotspot/share/code/icBuffer.hpp
 +++ b/src/hotspot/share/code/icBuffer.hpp
-@@ -57,7 +57,7 @@ class ICStub: public Stub {
+@@ -56,7 +56,7 @@ class ICStub: public Stub {
+  protected:
    friend class ICStubInterface;
    // This will be called only by ICStubInterface
-   void    initialize(int size,
--                     CodeStrings strings)        { _size = size; _ic_site = NULL; }
-+                     CodeStrings strings)        { mirror_w_set(_size) = size; mirror_w_set(_ic_site) = NULL; }
+-  void    initialize(int size)                   { _size = size; _ic_site = NULL; }
++    void    initialize(int size)                   { mirror_w_set(_size) = size; mirror_w_set(_ic_site) = NULL; }
    void    finalize(); // called when a method is removed
  
    // General info
+
 diff --git a/src/hotspot/share/code/nmethod.cpp b/src/hotspot/share/code/nmethod.cpp
 index f5861d1f3..8ee0cbb39 100644
 --- a/src/hotspot/share/code/nmethod.cpp
@@ -1372,21 +1306,21 @@ index 8fc2bdae9..b1a87d717 100644
      assert(is_null_pointer_exception(npe_addr),  "offset must be correct");
      assert(!is_abstract_method_error(npe_addr),  "offset must be correct");
 diff --git a/src/hotspot/share/interpreter/interpreter.cpp b/src/hotspot/share/interpreter/interpreter.cpp
-index 7805f39e1..3ee8b2367 100644
+index 1c8570516..590d44125 100644
 --- a/src/hotspot/share/interpreter/interpreter.cpp
 +++ b/src/hotspot/share/interpreter/interpreter.cpp
 @@ -51,8 +51,8 @@
  // Implementation of InterpreterCodelet
  
  void InterpreterCodelet::initialize(const char* description, Bytecodes::Code bytecode) {
--  _description       = description;
--  _bytecode          = bytecode;
+-  _description = description;
+-  _bytecode    = bytecode;
 +  mirror_w_set(_description)       = description;
 +  mirror_w_set(_bytecode)          = bytecode;
- }
- 
- 
-@@ -90,7 +90,7 @@ CodeletMark::CodeletMark(InterpreterMacroAssembler*& masm,
+ #ifndef PRODUCT
+   AsmRemarks* arp = new(&_asm_remarks) AsmRemarks();
+   DbgStrings* dsp = new(&_dbg_strings) DbgStrings();
+@@ -93,7 +93,7 @@ CodeletMark::CodeletMark(InterpreterMacroAssembler*& masm,
    assert(_clet != NULL, "we checked not enough space already");
  
    // Initialize Codelet attributes.
@@ -1395,21 +1329,21 @@ index 7805f39e1..3ee8b2367 100644
    // Create assembler for code generation.
    masm = new InterpreterMacroAssembler(&_cb);
    _masm = &masm;
+
 diff --git a/src/hotspot/share/interpreter/interpreter.hpp b/src/hotspot/share/interpreter/interpreter.hpp
-index 2e1333b08..c57055c1b 100644
+index b639aa975..c48d058c9 100644
 --- a/src/hotspot/share/interpreter/interpreter.hpp
 +++ b/src/hotspot/share/interpreter/interpreter.hpp
-@@ -54,8 +54,8 @@ class InterpreterCodelet: public Stub {
+@@ -54,7 +54,7 @@ class InterpreterCodelet: public Stub {
+ 
   public:
    // Initialization/finalization
-   void    initialize(int size,
--                     CodeStrings& strings)       { _size = size;
--                                                   NOT_PRODUCT(_strings = CodeStrings();)
-+                     CodeStrings& strings)       { mirror_w_set(_size) = size;
-+                                                   NOT_PRODUCT(mirror_w_set(_strings) = CodeStrings();)
-                                                    NOT_PRODUCT(_strings.copy(strings);) }
+-  void    initialize(int size)                   { _size = size; }
++  void    initialize(int size)                   { mirror_w_set(_size) = size; }
    void    finalize()                             { ShouldNotCallThis(); }
  
+   // General info/converters
+
 diff --git a/src/hotspot/share/interpreter/interpreterRuntime.cpp b/src/hotspot/share/interpreter/interpreterRuntime.cpp
 index d66ed24d8..94ee33e61 100644
 --- a/src/hotspot/share/interpreter/interpreterRuntime.cpp
