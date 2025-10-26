@@ -1,0 +1,36 @@
+Subject: [PATCH] Enable ZGC and Generational ZGC usage on Android
+---
+Index: src/hotspot/os/linux/gc/x/xNUMA_linux.cpp
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/src/hotspot/os/linux/gc/x/xNUMA_linux.cpp b/src/hotspot/os/linux/gc/x/xNUMA_linux.cpp
+--- a/src/hotspot/os/linux/gc/x/xNUMA_linux.cpp	(revision 0b77f4a0a1d75aa465f9c3951ffc2e4c9f0e6748)
++++ b/src/hotspot/os/linux/gc/x/xNUMA_linux.cpp	(revision f0856e8ff8c65d4ea07c739f0cd0036e37f76a95)
+@@ -31,7 +31,7 @@
+ #include "utilities/debug.hpp"
+ 
+ void XNUMA::pd_initialize() {
+-  _enabled = UseNUMA;
++  _enabled = false;
+ }
+ 
+ uint32_t XNUMA::count() {
+Index: src/hotspot/os/linux/gc/z/zNUMA_linux.cpp
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/src/hotspot/os/linux/gc/z/zNUMA_linux.cpp b/src/hotspot/os/linux/gc/z/zNUMA_linux.cpp
+--- a/src/hotspot/os/linux/gc/z/zNUMA_linux.cpp	(revision 0b77f4a0a1d75aa465f9c3951ffc2e4c9f0e6748)
++++ b/src/hotspot/os/linux/gc/z/zNUMA_linux.cpp	(revision f0856e8ff8c65d4ea07c739f0cd0036e37f76a95)
+@@ -31,7 +31,7 @@
+ #include "utilities/debug.hpp"
+ 
+ void ZNUMA::pd_initialize() {
+-  _enabled = UseNUMA;
++  _enabled = false;
+ }
+ 
+ uint32_t ZNUMA::count() {
