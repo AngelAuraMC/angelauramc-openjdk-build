@@ -1,0 +1,19 @@
+Subject: [PATCH] 28
+---
+Index: src/hotspot/os/linux/gc/z/zNUMA_linux.cpp
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/src/hotspot/os/linux/gc/z/zNUMA_linux.cpp b/src/hotspot/os/linux/gc/z/zNUMA_linux.cpp
+--- a/src/hotspot/os/linux/gc/z/zNUMA_linux.cpp	(revision d18097cea98b7cfbcee416c2b8d82902c2823ec3)
++++ b/src/hotspot/os/linux/gc/z/zNUMA_linux.cpp	(revision e910c7eff44cf604e89badab64f101fa1bf82b72)
+@@ -30,7 +30,7 @@
+ #include "utilities/debug.hpp"
+ 
+ void ZNUMA::pd_initialize() {
+-  _enabled = UseNUMA;
++  _enabled = false;
+ }
+ 
+ uint32_t ZNUMA::count() {
