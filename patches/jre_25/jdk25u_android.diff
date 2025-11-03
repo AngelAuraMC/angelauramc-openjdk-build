@@ -1,5 +1,486 @@
 Subject: [PATCH] jdk25u_android
 ---
+Index: make/autoconf/flags-cflags.m4
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/make/autoconf/flags-cflags.m4 b/make/autoconf/flags-cflags.m4
+--- a/make/autoconf/flags-cflags.m4	(revision 78770bfaefd23ae77ec4f8ddd769c1c2d9c282df)
++++ b/make/autoconf/flags-cflags.m4	(date 1762133205304)
+@@ -781,7 +781,7 @@
+   if test "x$TOOLCHAIN_TYPE" = xgcc; then
+     # This flag is required since GCC 6 as undefined behavior in OpenJDK code
+     # runs afoul of the more aggressive versions of this optimization.
+-    $1_TOOLCHAIN_CFLAGS="-fno-lifetime-dse"
++    # $1_TOOLCHAIN_CFLAGS="-fno-lifetime-dse"
+   fi
+ 
+   if test "x$TOOLCHAIN_TYPE" = xmicrosoft; then
+Index: src/java.base/unix/native/libjava/jni_util_md.c
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/src/java.base/unix/native/libjava/jni_util_md.c b/src/java.base/unix/native/libjava/jni_util_md.c
+--- a/src/java.base/unix/native/libjava/jni_util_md.c	(revision 78770bfaefd23ae77ec4f8ddd769c1c2d9c282df)
++++ b/src/java.base/unix/native/libjava/jni_util_md.c	(date 1762133313737)
+@@ -31,7 +31,7 @@
+ #include "jni_util.h"
+ #include "dlfcn.h"
+ 
+-#if defined(LINUX) && (defined(_GNU_SOURCE) || \
++#if !defined(__ANDROID__) && defined(LINUX) && (defined(_GNU_SOURCE) || \
+          (defined(_POSIX_C_SOURCE) && _POSIX_C_SOURCE < 200112L \
+              && defined(_XOPEN_SOURCE) && _XOPEN_SOURCE < 600))
+ extern int __xpg_strerror_r(int, char *, size_t);
+Index: make/common/JdkNativeCompilation.gmk
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/make/common/JdkNativeCompilation.gmk b/make/common/JdkNativeCompilation.gmk
+--- a/make/common/JdkNativeCompilation.gmk	(revision 78770bfaefd23ae77ec4f8ddd769c1c2d9c282df)
++++ b/make/common/JdkNativeCompilation.gmk	(date 1762133205504)
+@@ -30,6 +30,12 @@
+ 
+ include NativeCompilation.gmk
+ 
++ifeq ($(OPENJDK_TARGET_OS), android)
++  FindSrcDirsForLib += \
++    $(call uniq, $(wildcard \
++        $(TOPDIR)/src/$(strip $1)/linux/native/lib$(strip $2)))
++endif
++
+ FindSrcDirsForComponent += \
+   $(call uniq, $(wildcard \
+       $(TOPDIR)/src/$(strip $1)/$(OPENJDK_TARGET_OS)/native/$(strip $2) \
+Index: make/autoconf/toolchain.m4
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/make/autoconf/toolchain.m4 b/make/autoconf/toolchain.m4
+--- a/make/autoconf/toolchain.m4	(revision 78770bfaefd23ae77ec4f8ddd769c1c2d9c282df)
++++ b/make/autoconf/toolchain.m4	(date 1762133205459)
+@@ -884,11 +884,14 @@
+ 
+     PATH="$OLDPATH"
+ 
+-    TOOLCHAIN_EXTRACT_COMPILER_VERSION(BUILD_CC, [BuildC])
+-    TOOLCHAIN_EXTRACT_COMPILER_VERSION(BUILD_CXX, [BuildC++])
+-    TOOLCHAIN_PREPARE_FOR_VERSION_COMPARISONS([BUILD_], [OPENJDK_BUILD_], [build ])
+-    TOOLCHAIN_EXTRACT_LD_VERSION(BUILD_LD, [build linker])
+-    TOOLCHAIN_PREPARE_FOR_LD_VERSION_COMPARISONS([BUILD_], [OPENJDK_BUILD_])
++    # xandroid
++    if test "x$OPENJDK_BUILD_OS" != "xlinux"; then
++      TOOLCHAIN_EXTRACT_COMPILER_VERSION(BUILD_CC, [BuildC])
++      TOOLCHAIN_EXTRACT_COMPILER_VERSION(BUILD_CXX, [BuildC++])
++      TOOLCHAIN_PREPARE_FOR_VERSION_COMPARISONS([BUILD_], [OPENJDK_BUILD_], [build ])
++      TOOLCHAIN_EXTRACT_LD_VERSION(BUILD_LD, [build linker])
++      TOOLCHAIN_PREPARE_FOR_LD_VERSION_COMPARISONS([BUILD_], [OPENJDK_BUILD_])
++    fi
+   else
+     # If we are not cross compiling, use the normal target compilers for
+     # building the build platform executables.
+Index: make/autoconf/platform.m4
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/make/autoconf/platform.m4 b/make/autoconf/platform.m4
+--- a/make/autoconf/platform.m4	(revision 78770bfaefd23ae77ec4f8ddd769c1c2d9c282df)
++++ b/make/autoconf/platform.m4	(date 1762133205427)
+@@ -202,6 +202,10 @@
+       VAR_OS=linux
+       VAR_OS_TYPE=unix
+       ;;
++    *android*)
++      VAR_OS=linux
++      VAR_OS_TYPE=unix
++      ;;
+     *darwin*)
+       VAR_OS=macosx
+       VAR_OS_TYPE=unix
+Index: src/java.base/unix/native/libjava/java_props_md.c
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/src/java.base/unix/native/libjava/java_props_md.c b/src/java.base/unix/native/libjava/java_props_md.c
+--- a/src/java.base/unix/native/libjava/java_props_md.c	(revision 78770bfaefd23ae77ec4f8ddd769c1c2d9c282df)
++++ b/src/java.base/unix/native/libjava/java_props_md.c	(date 1762133313729)
+@@ -46,6 +46,100 @@
+ #include "java_props_macosx.h"
+ #endif
+ 
++#ifdef __ANDROID__
++// From https://android.googlesource.com/platform/bionic/+/master/libc/bionic/langinfo.cpp
++/*
++ * Copyright (C) 2016 The Android Open Source Project
++ * All rights reserved.
++ *
++ * Redistribution and use in source and binary forms, with or without
++ * modification, are permitted provided that the following conditions
++ * are met:
++ *  * Redistributions of source code must retain the above copyright
++ *    notice, this list of conditions and the following disclaimer.
++ *  * Redistributions in binary form must reproduce the above copyright
++ *    notice, this list of conditions and the following disclaimer in
++ *    the documentation and/or other materials provided with the
++ *    distribution.
++ *
++ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
++ * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
++ * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
++ * FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE
++ * COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
++ * INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,
++ * BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS
++ * OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED
++ * AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
++ * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT
++ * OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
++ * SUCH DAMAGE.
++ */
++
++char* nl_langinfo(nl_item item) {
++  const char* result = "";
++  switch (item) {
++    case CODESET: result = (MB_CUR_MAX == 1) ? "ASCII" : "UTF-8"; break;
++    case D_T_FMT: result = "%F %T %z"; break;
++    case D_FMT: result = "%F"; break;
++    case T_FMT: result = "%T"; break;
++    case T_FMT_AMPM: result = "%I:%M:%S %p"; break;
++    case AM_STR: result = "AM"; break;
++    case PM_STR: result = "PM"; break;
++    case DAY_1: result = "Sunday"; break;
++    case DAY_2: result = "Monday"; break;
++    case DAY_3: result = "Tuesday"; break;
++    case DAY_4: result = "Wednesday"; break;
++    case DAY_5: result = "Thursday"; break;
++    case DAY_6: result = "Friday"; break;
++    case DAY_7: result = "Saturday"; break;
++    case ABDAY_1: result = "Sun"; break;
++    case ABDAY_2: result = "Mon"; break;
++    case ABDAY_3: result = "Tue"; break;
++    case ABDAY_4: result = "Wed"; break;
++    case ABDAY_5: result = "Thu"; break;
++    case ABDAY_6: result = "Fri"; break;
++    case ABDAY_7: result = "Sat"; break;
++    case MON_1: result = "January"; break;
++    case MON_2: result = "February"; break;
++    case MON_3: result = "March"; break;
++    case MON_4: result = "April"; break;
++    case MON_5: result = "May"; break;
++    case MON_6: result = "June"; break;
++    case MON_7: result = "July"; break;
++    case MON_8: result = "August"; break;
++    case MON_9: result = "September"; break;
++    case MON_10: result = "October"; break;
++    case MON_11: result = "November"; break;
++    case MON_12: result = "December"; break;
++    case ABMON_1: result = "Jan"; break;
++    case ABMON_2: result = "Feb"; break;
++    case ABMON_3: result = "Mar"; break;
++    case ABMON_4: result = "Apr"; break;
++    case ABMON_5: result = "May"; break;
++    case ABMON_6: result = "Jun"; break;
++    case ABMON_7: result = "Jul"; break;
++    case ABMON_8: result = "Aug"; break;
++    case ABMON_9: result = "Sep"; break;
++    case ABMON_10: result = "Oct"; break;
++    case ABMON_11: result = "Nov"; break;
++    case ABMON_12: result = "Dec"; break;
++    case ERA: result = ""; break;
++    case ERA_D_FMT: result = ""; break;
++    case ERA_D_T_FMT: result = ""; break;
++    case ERA_T_FMT: result = ""; break;
++    case ALT_DIGITS: result = ""; break;
++    case RADIXCHAR: result = "."; break;
++    case THOUSEP: result = ""; break;
++    case YESEXPR: result = "^[yY]"; break;
++    case NOEXPR: result = "^[nN]"; break;
++    case CRNCYSTR: result = ""; break;
++    default: break;
++  }
++  return (char*) result;
++}
++#endif
++
+ #if defined(_ALLBSD_SOURCE)
+ #if !defined(P_tmpdir)
+ #include <paths.h>
+Index: src/hotspot/share/utilities/globalDefinitions_gcc.hpp
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/src/hotspot/share/utilities/globalDefinitions_gcc.hpp b/src/hotspot/share/utilities/globalDefinitions_gcc.hpp
+--- a/src/hotspot/share/utilities/globalDefinitions_gcc.hpp	(revision 78770bfaefd23ae77ec4f8ddd769c1c2d9c282df)
++++ b/src/hotspot/share/utilities/globalDefinitions_gcc.hpp	(date 1762133276904)
+@@ -59,6 +59,10 @@
+ #include <limits.h>
+ #include <errno.h>
+ 
++#if defined(__ANDROID__) && !defined(ANDROID)
++#define ANDROID 1
++#endif
++
+ #if defined(LINUX) || defined(_ALLBSD_SOURCE) || defined(_AIX)
+ #include <signal.h>
+ #ifndef __OpenBSD__
+Index: src/hotspot/os_cpu/linux_x86/fpu_control.h
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/src/hotspot/os_cpu/linux_x86/fpu_control.h b/src/hotspot/os_cpu/linux_x86/fpu_control.h
+new file mode 100644
+--- /dev/null	(date 1762133276871)
++++ b/src/hotspot/os_cpu/linux_x86/fpu_control.h	(date 1762133276871)
+@@ -0,0 +1,109 @@
++/* FPU control word bits.  x86 version.
++   Copyright (C) 1993-2012 Free Software Foundation, Inc.
++   This file is part of the GNU C Library.
++   Contributed by Olaf Flebbe.
++
++   The GNU C Library is free software; you can redistribute it and/or
++   modify it under the terms of the GNU Lesser General Public
++   License as published by the Free Software Foundation; either
++   version 2.1 of the License, or (at your option) any later version.
++
++   The GNU C Library is distributed in the hope that it will be useful,
++   but WITHOUT ANY WARRANTY; without even the implied warranty of
++   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
++   Lesser General Public License for more details.
++
++   You should have received a copy of the GNU Lesser General Public
++   License along with the GNU C Library; if not, see
++   <http://www.gnu.org/licenses/>.  */
++
++#ifndef _FPU_CONTROL_H
++#define _FPU_CONTROL_H	1
++
++/* Note that this file sets on x86-64 only the x87 FPU, it does not
++   touch the SSE unit.  */
++
++/* Here is the dirty part. Set up your 387 through the control word
++ * (cw) register.
++ *
++ *     15-13    12  11-10  9-8     7-6     5    4    3    2    1    0
++ * | reserved | IC | RC  | PC | reserved | PM | UM | OM | ZM | DM | IM
++ *
++ * IM: Invalid operation mask
++ * DM: Denormalized operand mask
++ * ZM: Zero-divide mask
++ * OM: Overflow mask
++ * UM: Underflow mask
++ * PM: Precision (inexact result) mask
++ *
++ * Mask bit is 1 means no interrupt.
++ *
++ * PC: Precision control
++ * 11 - round to extended precision
++ * 10 - round to double precision
++ * 00 - round to single precision
++ *
++ * RC: Rounding control
++ * 00 - rounding to nearest
++ * 01 - rounding down (toward - infinity)
++ * 10 - rounding up (toward + infinity)
++ * 11 - rounding toward zero
++ *
++ * IC: Infinity control
++ * That is for 8087 and 80287 only.
++ *
++ * The hardware default is 0x037f which we use.
++ */
++
++#include <features.h>
++
++/* masking of interrupts */
++#define _FPU_MASK_IM  0x01
++#define _FPU_MASK_DM  0x02
++#define _FPU_MASK_ZM  0x04
++#define _FPU_MASK_OM  0x08
++#define _FPU_MASK_UM  0x10
++#define _FPU_MASK_PM  0x20
++
++/* precision control */
++#define _FPU_EXTENDED 0x300	/* libm requires double extended precision.  */
++#define _FPU_DOUBLE   0x200
++#define _FPU_SINGLE   0x0
++
++/* rounding control */
++#define _FPU_RC_NEAREST 0x0    /* RECOMMENDED */
++#define _FPU_RC_DOWN    0x400
++#define _FPU_RC_UP      0x800
++#define _FPU_RC_ZERO    0xC00
++
++#define _FPU_RESERVED 0xF0C0  /* Reserved bits in cw */
++
++
++/* The fdlibm code requires strict IEEE double precision arithmetic,
++   and no interrupts for exceptions, rounding to nearest.  */
++
++#define _FPU_DEFAULT  0x037f
++
++/* IEEE:  same as above.  */
++#define _FPU_IEEE     0x037f
++
++/* Type of the control word.  */
++typedef unsigned int fpu_control_t __attribute__ ((__mode__ (__HI__)));
++
++/* Macros for accessing the hardware control word.  "*&" is used to
++   work around a bug in older versions of GCC.  __volatile__ is used
++   to support combination of writing the control register and reading
++   it back.  Without __volatile__, the old value may be used for reading
++   back under compiler optimization.
++
++   Note that the use of these macros is not sufficient anymore with
++   recent hardware nor on x86-64.  Some floating point operations are
++   executed in the SSE/SSE2 engines which have their own control and
++   status register.  */
++#define _FPU_GETCW(cw) __asm__ __volatile__ ("fnstcw %0" : "=m" (*&cw))
++#define _FPU_SETCW(cw) __asm__ __volatile__ ("fldcw %0" : : "m" (*&cw))
++
++/* Default control word set at startup.  */
++extern fpu_control_t __fpu_control;
++
++#endif	/* fpu_control.h */
+Index: src/hotspot/os_cpu/linux_arm/fpu_control.h
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/src/hotspot/os_cpu/linux_arm/fpu_control.h b/src/hotspot/os_cpu/linux_arm/fpu_control.h
+new file mode 100644
+--- /dev/null	(date 1762133276820)
++++ b/src/hotspot/os_cpu/linux_arm/fpu_control.h	(date 1762133276820)
+@@ -0,0 +1,59 @@
++/* FPU control word definitions.  ARM VFP version.
++   Copyright (C) 2004-2019 Free Software Foundation, Inc.
++   This file is part of the GNU C Library.
++   The GNU C Library is free software; you can redistribute it and/or
++   modify it under the terms of the GNU Lesser General Public
++   License as published by the Free Software Foundation; either
++   version 2.1 of the License, or (at your option) any later version.
++   The GNU C Library is distributed in the hope that it will be useful,
++   but WITHOUT ANY WARRANTY; without even the implied warranty of
++   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
++   Lesser General Public License for more details.
++   You should have received a copy of the GNU Lesser General Public
++   License along with the GNU C Library.  If not, see
++   <http://www.gnu.org/licenses/>.  */
++#ifndef _FPU_CONTROL_H
++#define _FPU_CONTROL_H
++#if !(defined(_LIBC) && !defined(_LIBC_TEST)) && defined(__SOFTFP__)
++#define _FPU_RESERVED 0xffffffff
++#define _FPU_DEFAULT  0x00000000
++typedef unsigned int fpu_control_t;
++#define _FPU_GETCW(cw) (cw) = 0
++#define _FPU_SETCW(cw) (void) (cw)
++extern fpu_control_t __fpu_control;
++#else
++/* masking of interrupts */
++#define _FPU_MASK_IM        0x00000100        /* invalid operation */
++#define _FPU_MASK_ZM        0x00000200        /* divide by zero */
++#define _FPU_MASK_OM        0x00000400        /* overflow */
++#define _FPU_MASK_UM        0x00000800        /* underflow */
++#define _FPU_MASK_PM        0x00001000        /* inexact */
++#define _FPU_MASK_NZCV        0xf0000000        /* NZCV flags */
++#define _FPU_MASK_RM        0x00c00000        /* rounding mode */
++#define _FPU_MASK_EXCEPT 0x00001f1f        /* all exception flags */
++/* Some bits in the FPSCR are not yet defined.  They must be preserved when
++   modifying the contents.  */
++#define _FPU_RESERVED        0x00086060
++#define _FPU_DEFAULT    0x00000000
++/* Default + exceptions enabled.  */
++#define _FPU_IEEE        (_FPU_DEFAULT | 0x00001f00)
++/* Type of the control word.  */
++typedef unsigned int fpu_control_t;
++/* Macros for accessing the hardware control word.  */
++#ifdef __SOFTFP__
++/* This is fmrx %0, fpscr.  */
++# define _FPU_GETCW(cw) \
++  __asm__ __volatile__ ("mrc p10, 7, %0, cr1, cr0, 0" : "=r" (cw))
++/* This is fmxr fpscr, %0.  */
++# define _FPU_SETCW(cw) \
++  __asm__ __volatile__ ("mcr p10, 7, %0, cr1, cr0, 0" : : "r" (cw))
++#else
++# define _FPU_GETCW(cw) \
++  __asm__ __volatile__ ("vmrs %0, fpscr" : "=r" (cw))
++# define _FPU_SETCW(cw) \
++  __asm__ __volatile__ ("vmsr fpscr, %0" : : "r" (cw))
++#endif
++/* Default control word set at startup.  */
++extern fpu_control_t __fpu_control;
++#endif /* __SOFTFP__ */
++#endif /* _FPU_CONTROL_H */
+Index: src/java.base/unix/native/libjava/posix_spawn.h
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/src/java.base/unix/native/libjava/posix_spawn.h b/src/java.base/unix/native/libjava/posix_spawn.h
+new file mode 100644
+--- /dev/null	(date 1762133313753)
++++ b/src/java.base/unix/native/libjava/posix_spawn.h	(date 1762133313753)
+@@ -0,0 +1,53 @@
++// From https://android.googlesource.com/platform/external/dhcpcd-6.8.2/+/refs/heads/pie-dr1-release/compat/posix_spawn.h
++/*
++ * dhcpcd - DHCP client daemon
++ * Copyright (c) 2006-2012 Roy Marples <roy@marples.name>
++ * All rights reserved
++ * Redistribution and use in source and binary forms, with or without
++ * modification, are permitted provided that the following conditions
++ * are met:
++ * 1. Redistributions of source code must retain the above copyright
++ *    notice, this list of conditions and the following disclaimer.
++ * 2. Redistributions in binary form must reproduce the above copyright
++ *    notice, this list of conditions and the following disclaimer in the
++ *    documentation and/or other materials provided with the distribution.
++ *
++ * THIS SOFTWARE IS PROVIDED BY THE AUTHOR AND CONTRIBUTORS ``AS IS'' AND
++ * ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
++ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
++ * ARE DISCLAIMED.  IN NO EVENT SHALL THE AUTHOR OR CONTRIBUTORS BE LIABLE
++ * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
++ * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS
++ * OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
++ * HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
++ * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
++ * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
++ * SUCH DAMAGE.
++ */
++
++#ifndef POSIX_SPAWN_H
++#define POSIX_SPAWN_H
++
++#include <signal.h>
++
++typedef struct {
++    short posix_attr_flags;
++#define POSIX_SPAWN_SETSIGDEF       0x10
++#define POSIX_SPAWN_SETSIGMASK      0x20
++    sigset_t posix_attr_sigmask;
++    sigset_t posix_attr_sigdefault;
++} posix_spawnattr_t;
++
++typedef struct {
++//  int unused;
++} posix_spawn_file_actions_t;
++
++int posix_spawn(pid_t *, const char *,
++    const posix_spawn_file_actions_t *, const posix_spawnattr_t *,
++    char *const [], char *const []);
++int posix_spawnattr_init(posix_spawnattr_t *);
++int posix_spawnattr_setflags(posix_spawnattr_t *, short);
++int posix_spawnattr_setsigmask(posix_spawnattr_t *, const sigset_t *);
++int posix_spawnattr_setsigdefault(posix_spawnattr_t *, const sigset_t *);
++
++#endif
 Index: src/java.base/unix/native/libjava/posix_spawn.c
 IDEA additional info:
 Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
@@ -7,8 +488,8 @@ Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
 ===================================================================
 diff --git a/src/java.base/unix/native/libjava/posix_spawn.c b/src/java.base/unix/native/libjava/posix_spawn.c
 new file mode 100644
---- /dev/null	(date 1762132015795)
-+++ b/src/java.base/unix/native/libjava/posix_spawn.c	(date 1762132015795)
+--- /dev/null	(date 1762133313745)
++++ b/src/java.base/unix/native/libjava/posix_spawn.c	(date 1762133313745)
 @@ -0,0 +1,147 @@
 +// From https://android.googlesource.com/platform/external/dhcpcd-6.8.2/+/refs/heads/pie-dr1-release/compat/posix_spawn.c
 +/*
@@ -157,47 +638,6 @@ new file mode 100644
 +  attr->posix_attr_sigdefault = *sigmask;
 +  return 0;
 +}
-Index: src/hotspot/os_cpu/linux_x86/os_linux_x86.cpp
-IDEA additional info:
-Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
-<+>UTF-8
-===================================================================
-diff --git a/src/hotspot/os_cpu/linux_x86/os_linux_x86.cpp b/src/hotspot/os_cpu/linux_x86/os_linux_x86.cpp
---- a/src/hotspot/os_cpu/linux_x86/os_linux_x86.cpp	(revision d8dcc396bf95a2fd1240f3b4d0588898d68cb0f0)
-+++ b/src/hotspot/os_cpu/linux_x86/os_linux_x86.cpp	(date 1762132015728)
-@@ -72,8 +72,10 @@
- # include <pwd.h>
- # include <poll.h>
- # include <ucontext.h>
--#ifndef AMD64
-+#if !defined(AMD64) && !defined(__ANDROID__)
- # include <fpu_control.h>
-+#elif defined(__ANDROID__)
-+# include "fpu_control.h"
- #endif
- 
- #ifdef AMD64
-Index: make/common/Utils.gmk
-IDEA additional info:
-Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
-<+>UTF-8
-===================================================================
-diff --git a/make/common/Utils.gmk b/make/common/Utils.gmk
---- a/make/common/Utils.gmk	(revision d8dcc396bf95a2fd1240f3b4d0588898d68cb0f0)
-+++ b/make/common/Utils.gmk	(date 1762132015546)
-@@ -157,6 +157,12 @@
- isTargetOs = \
-   $(strip $(if $(filter $(OPENJDK_TARGET_OS), $1), true, false))
- 
-+ifeq ($(call isTargetOs, android), true)
-+  # PATCH: Since Android is Linux, so Linux specific things are also built for Android.
-+  isTargetOs = \
-+    $(strip $(if $(filter $(OPENJDK_TARGET_OS), $1), true, $(if $(filter linux, $1), true, false)))
-+endif
-+
- isTargetOsType = \
-   $(strip $(if $(filter $(OPENJDK_TARGET_OS_TYPE), $1), true, false))
- 
 Index: src/java.base/share/native/libtinyiconv/iconv.cpp
 IDEA additional info:
 Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
@@ -205,8 +645,8 @@ Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
 ===================================================================
 diff --git a/src/java.base/share/native/libtinyiconv/iconv.cpp b/src/java.base/share/native/libtinyiconv/iconv.cpp
 new file mode 100644
---- /dev/null	(date 1762132015756)
-+++ b/src/java.base/share/native/libtinyiconv/iconv.cpp	(date 1762132015756)
+--- /dev/null	(date 1762133313700)
++++ b/src/java.base/share/native/libtinyiconv/iconv.cpp	(date 1762133313700)
 @@ -0,0 +1,438 @@
 +/*
 + * Copyright (C) 2017 The Android Open Source Project
@@ -646,152 +1086,169 @@ new file mode 100644
 +__END_DECLS
 +
 +#endif // __ANDROID__
-Index: make/modules/java.desktop/Lib.gmk
+Index: src/java.desktop/unix/native/libawt/awt/awt_LoadLibrary.c
 IDEA additional info:
 Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
 <+>UTF-8
 ===================================================================
-diff --git a/make/modules/java.desktop/Lib.gmk b/make/modules/java.desktop/Lib.gmk
---- a/make/modules/java.desktop/Lib.gmk	(revision d8dcc396bf95a2fd1240f3b4d0588898d68cb0f0)
-+++ b/make/modules/java.desktop/Lib.gmk	(date 1762132015574)
-@@ -79,7 +79,7 @@
-       LIBS_windows := advapi32.lib dsound.lib ole32.lib user32.lib winmm.lib, \
-   ))
+diff --git a/src/java.desktop/unix/native/libawt/awt/awt_LoadLibrary.c b/src/java.desktop/unix/native/libawt/awt/awt_LoadLibrary.c
+--- a/src/java.desktop/unix/native/libawt/awt/awt_LoadLibrary.c	(revision 78770bfaefd23ae77ec4f8ddd769c1c2d9c282df)
++++ b/src/java.desktop/unix/native/libawt/awt/awt_LoadLibrary.c	(date 1762133313785)
+@@ -30,6 +30,7 @@
+ #include <jni.h>
+ #include <jni_util.h>
+ #include <jvm.h>
++#include <stdbool.h>
+ #include "gdefs.h"
  
--  TARGETS += $(BUILD_LIBJSOUND)
-+  # TARGETS += $(BUILD_LIBJSOUND)
- endif
+ #include <sys/param.h>
+@@ -95,6 +96,30 @@
+   #define HEADLESS_PATH "/libawt_headless.so"
+ #endif
  
- ifeq ($(call isTargetOs, macosx), true)
-Index: src/java.base/unix/native/libjava/posix_spawn.h
++static bool read_so_path_from_maps(const char* so_name, char* buf) {
++  FILE *fp = fopen("/proc/self/maps", "r");
++
++  if (!fp) {
++    return false;
++  }
++
++  char maps_buffer[2048];
++  while (fgets(maps_buffer, 2048, fp) != NULL) {
++    if (strstr(maps_buffer, so_name) == NULL) {
++      continue;
++    }
++
++    char *so_path = strchr(maps_buffer, '/');
++    so_path[strlen(so_path) - 1] = '\0'; // Cut trailing \n
++      strcpy(buf,so_path);
++    fclose(fp);
++    return true;
++  }
++
++  fclose(fp);
++  return false;
++}
++
+ jint
+ AWT_OnLoad(JavaVM *vm, void *reserved)
+ {
+@@ -136,6 +161,8 @@
+         dladdr((void *)AWT_OnLoad, &dlinfo);
+         if (realpath((char *)dlinfo.dli_fname, buf) == NULL) {
+             perror((char *)dlinfo.dli_fname);
++        } else{
++            read_so_path_from_maps(dlinfo.dli_fname, buf);
+         }
+         len = strlen(buf);
+         p = strrchr(buf, '/');
+Index: src/hotspot/os_cpu/linux_x86/os_linux_x86.cpp
 IDEA additional info:
 Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
 <+>UTF-8
 ===================================================================
-diff --git a/src/java.base/unix/native/libjava/posix_spawn.h b/src/java.base/unix/native/libjava/posix_spawn.h
-new file mode 100644
---- /dev/null	(date 1762132015807)
-+++ b/src/java.base/unix/native/libjava/posix_spawn.h	(date 1762132015807)
-@@ -0,0 +1,53 @@
-+// From https://android.googlesource.com/platform/external/dhcpcd-6.8.2/+/refs/heads/pie-dr1-release/compat/posix_spawn.h
-+/*
-+ * dhcpcd - DHCP client daemon
-+ * Copyright (c) 2006-2012 Roy Marples <roy@marples.name>
-+ * All rights reserved
-+ * Redistribution and use in source and binary forms, with or without
-+ * modification, are permitted provided that the following conditions
-+ * are met:
-+ * 1. Redistributions of source code must retain the above copyright
-+ *    notice, this list of conditions and the following disclaimer.
-+ * 2. Redistributions in binary form must reproduce the above copyright
-+ *    notice, this list of conditions and the following disclaimer in the
-+ *    documentation and/or other materials provided with the distribution.
-+ *
-+ * THIS SOFTWARE IS PROVIDED BY THE AUTHOR AND CONTRIBUTORS ``AS IS'' AND
-+ * ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
-+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
-+ * ARE DISCLAIMED.  IN NO EVENT SHALL THE AUTHOR OR CONTRIBUTORS BE LIABLE
-+ * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
-+ * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS
-+ * OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
-+ * HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
-+ * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
-+ * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
-+ * SUCH DAMAGE.
-+ */
-+
-+#ifndef POSIX_SPAWN_H
-+#define POSIX_SPAWN_H
-+
-+#include <signal.h>
-+
-+typedef struct {
-+    short posix_attr_flags;
-+#define POSIX_SPAWN_SETSIGDEF       0x10
-+#define POSIX_SPAWN_SETSIGMASK      0x20
-+    sigset_t posix_attr_sigmask;
-+    sigset_t posix_attr_sigdefault;
-+} posix_spawnattr_t;
-+
-+typedef struct {
-+//  int unused;
-+} posix_spawn_file_actions_t;
-+
-+int posix_spawn(pid_t *, const char *,
-+    const posix_spawn_file_actions_t *, const posix_spawnattr_t *,
-+    char *const [], char *const []);
-+int posix_spawnattr_init(posix_spawnattr_t *);
-+int posix_spawnattr_setflags(posix_spawnattr_t *, short);
-+int posix_spawnattr_setsigmask(posix_spawnattr_t *, const sigset_t *);
-+int posix_spawnattr_setsigdefault(posix_spawnattr_t *, const sigset_t *);
-+
+diff --git a/src/hotspot/os_cpu/linux_x86/os_linux_x86.cpp b/src/hotspot/os_cpu/linux_x86/os_linux_x86.cpp
+--- a/src/hotspot/os_cpu/linux_x86/os_linux_x86.cpp	(revision 78770bfaefd23ae77ec4f8ddd769c1c2d9c282df)
++++ b/src/hotspot/os_cpu/linux_x86/os_linux_x86.cpp	(date 1762133276879)
+@@ -72,8 +72,10 @@
+ # include <pwd.h>
+ # include <poll.h>
+ # include <ucontext.h>
+-#ifndef AMD64
++#if !defined(AMD64) && !defined(__ANDROID__)
+ # include <fpu_control.h>
++#elif defined(__ANDROID__)
++# include "fpu_control.h"
+ #endif
+ 
+ #ifdef AMD64
+Index: src/hotspot/os/posix/os_posix.cpp
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/src/hotspot/os/posix/os_posix.cpp b/src/hotspot/os/posix/os_posix.cpp
+--- a/src/hotspot/os/posix/os_posix.cpp	(revision 78770bfaefd23ae77ec4f8ddd769c1c2d9c282df)
++++ b/src/hotspot/os/posix/os_posix.cpp	(date 1762133276773)
+@@ -83,7 +83,9 @@
+ #include <sys/wait.h>
+ #include <time.h>
+ #include <unistd.h>
++#ifndef __ANDROID__
+ #include <utmpx.h>
 +#endif
-Index: make/common/JdkNativeCompilation.gmk
-IDEA additional info:
-Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
-<+>UTF-8
-===================================================================
-diff --git a/make/common/JdkNativeCompilation.gmk b/make/common/JdkNativeCompilation.gmk
---- a/make/common/JdkNativeCompilation.gmk	(revision d8dcc396bf95a2fd1240f3b4d0588898d68cb0f0)
-+++ b/make/common/JdkNativeCompilation.gmk	(date 1762132015523)
-@@ -30,6 +30,12 @@
  
- include NativeCompilation.gmk
+ #ifdef __APPLE__
+   #include <crt_externs.h>
+@@ -547,6 +549,7 @@
+ // unfortunately it does not work on macOS and Linux because the utx chain has no entry
+ // for reboot at least on my test machines
+ void os::Posix::print_uptime_info(outputStream* st) {
++#ifndef __ANDROID__
+   int bootsec = -1;
+   time_t currsec = time(nullptr);
+   struct utmpx* ent;
+@@ -561,6 +564,7 @@
+   if (bootsec != -1) {
+     os::print_dhm(st, "OS uptime:", currsec-bootsec);
+   }
++#endif
+ }
  
-+ifeq ($(OPENJDK_TARGET_OS), android)
-+  FindSrcDirsForLib += \
-+    $(call uniq, $(wildcard \
-+        $(TOPDIR)/src/$(strip $1)/linux/native/lib$(strip $2)))
-+endif
+ static void print_rlimit(outputStream* st, const char* msg,
+@@ -1998,11 +2002,31 @@
+   const char* argv[4] = {"sh", "-c", cmd, nullptr};
+   pid_t pid = -1;
+   char** env = os::get_environ();
++#ifndef __ANDROID__
+   // Note: cast is needed because posix_spawn() requires - for compatibility with ancient
+   // C-code - a non-const argv/envp pointer array. But it is fine to hand in literal
+   // strings and just cast the constness away. See also ProcessImpl_md.c.
+   int rc = ::posix_spawn(&pid, "/bin/sh", nullptr, nullptr, (char**) argv, env);
+   if (rc == 0) {
++#else
++  pid = ::fork();
 +
- FindSrcDirsForComponent += \
-   $(call uniq, $(wildcard \
-       $(TOPDIR)/src/$(strip $1)/$(OPENJDK_TARGET_OS)/native/$(strip $2) \
-Index: make/autoconf/flags-cflags.m4
-IDEA additional info:
-Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
-<+>UTF-8
-===================================================================
-diff --git a/make/autoconf/flags-cflags.m4 b/make/autoconf/flags-cflags.m4
---- a/make/autoconf/flags-cflags.m4	(revision d8dcc396bf95a2fd1240f3b4d0588898d68cb0f0)
-+++ b/make/autoconf/flags-cflags.m4	(date 1762132381700)
-@@ -774,7 +774,7 @@
-   if test "x$TOOLCHAIN_TYPE" = xgcc; then
-     # This flag is required since GCC 6 as undefined behavior in OpenJDK code
-     # runs afoul of the more aggressive versions of this optimization.
--    $1_TOOLCHAIN_CFLAGS="-fno-lifetime-dse"
-+    # $1_TOOLCHAIN_CFLAGS="-fno-lifetime-dse"
-   fi
- 
-   if test "x$TOOLCHAIN_TYPE" = xmicrosoft; then
-Index: make/common/Modules.gmk
-IDEA additional info:
-Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
-<+>UTF-8
-===================================================================
-diff --git a/make/common/Modules.gmk b/make/common/Modules.gmk
---- a/make/common/Modules.gmk	(revision d8dcc396bf95a2fd1240f3b4d0588898d68cb0f0)
-+++ b/make/common/Modules.gmk	(date 1762132015534)
-@@ -78,6 +78,10 @@
- TOP_SRC_DIRS += \
-     $(TOPDIR)/src \
-     #
-+ifeq ($(OPENJDK_TARGET_OS), android)
-+  SRC_SUBDIRS += linux/classes
-+endif
++  if (pid < 0) {
++    // fork failed
++    return -1;
 +
++  } else if (pid == 0) {
++    // child process
++
++    ::execve("/bin/sh", (char* const*)argv, env);
++
++    // execve failed
++    ::_exit(-1);
++
++  } else  {
++    // copied from J2SE ..._waitForProcessExit() in UNIXProcess_md.c; we don't
++    // care about the actual exit code, for now.
++#endif
+     int status;
+     // Wait for the child process to exit.  This returns immediately if
+     // the child has already exited. */
+@@ -2027,9 +2051,11 @@
+       // Unknown exit code; pass it through
+       return status;
+     }
++#ifndef __ANDROID__
+   } else {
+     // Don't log, we are inside error handling
+     return -1;
++#endif
+   }
+ }
  
- SRC_SUBDIRS += $(OPENJDK_TARGET_OS)/classes
- ifneq ($(OPENJDK_TARGET_OS), $(OPENJDK_TARGET_OS_TYPE))
 Index: src/java.base/unix/native/libjli/java_md.c
 IDEA additional info:
 Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
 <+>UTF-8
 ===================================================================
 diff --git a/src/java.base/unix/native/libjli/java_md.c b/src/java.base/unix/native/libjli/java_md.c
---- a/src/java.base/unix/native/libjli/java_md.c	(revision d8dcc396bf95a2fd1240f3b4d0588898d68cb0f0)
-+++ b/src/java.base/unix/native/libjli/java_md.c	(date 1762132015819)
-@@ -579,7 +579,58 @@
+--- a/src/java.base/unix/native/libjli/java_md.c	(revision 78770bfaefd23ae77ec4f8ddd769c1c2d9c282df)
++++ b/src/java.base/unix/native/libjli/java_md.c	(date 1762133313760)
+@@ -576,7 +576,58 @@
  SetExecname(char **argv)
  {
      char* exec_path = NULL;
@@ -851,7 +1308,7 @@ diff --git a/src/java.base/unix/native/libjli/java_md.c b/src/java.base/unix/nat
      {
          const char* self = "/proc/self/exe";
          char buf[PATH_MAX+1];
-@@ -589,10 +640,6 @@
+@@ -586,10 +637,6 @@
              exec_path = JLI_StringDup(buf);
          }
      }
@@ -862,568 +1319,14 @@ diff --git a/src/java.base/unix/native/libjli/java_md.c b/src/java.base/unix/nat
  #endif
  
      if (exec_path == NULL) {
-Index: src/hotspot/os/linux/os_linux.cpp
-IDEA additional info:
-Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
-<+>UTF-8
-===================================================================
-diff --git a/src/hotspot/os/linux/os_linux.cpp b/src/hotspot/os/linux/os_linux.cpp
---- a/src/hotspot/os/linux/os_linux.cpp	(revision d8dcc396bf95a2fd1240f3b4d0588898d68cb0f0)
-+++ b/src/hotspot/os/linux/os_linux.cpp	(date 1762132015610)
-@@ -144,10 +144,10 @@
- // for timer info max values which include all bits
- #define ALL_64_BITS CONST64(0xFFFFFFFFFFFFFFFF)
- 
--#ifdef MUSL_LIBC
-+#if defined(MUSL_LIBC) || defined(__ANDROID__)
- // dlvsym is not a part of POSIX
- // and musl libc doesn't implement it.
--static void *dlvsym(void *handle,
-+void *dlvsym(void *handle,
-                     const char *symbol,
-                     const char *version) {
-    // load the latest version of symbol
-@@ -224,6 +224,8 @@
- // avoid this
- static bool suppress_primordial_thread_resolution = false;
- 
-+static bool read_so_path_from_maps(const char* so_name, char* buf, int buflen);
-+
- // utility functions
- 
- julong os::Linux::available_memory_in_container() {
-@@ -479,12 +481,14 @@
- 
- #ifndef SYS_gettid
- // i386: 224, amd64: 186, sparc: 143
--  #if defined(__i386__)
-+  #if defined(__i386__) || defined(__arm__)
-     #define SYS_gettid 224
-   #elif defined(__amd64__)
-     #define SYS_gettid 186
-   #elif defined(__sparc__)
-     #define SYS_gettid 143
-+  #elif defined(__arm64__) || defined(__aarch64__)
-+    #define SYS_gettid 178
-   #else
-     #error "Define SYS_gettid for this architecture"
-   #endif
-@@ -668,6 +672,7 @@
- // detecting pthread library
- 
- void os::Linux::libpthread_init() {
-+#ifndef __ANDROID__
-   // Save glibc and pthread version strings.
- #if !defined(_CS_GNU_LIBC_VERSION) || \
-     !defined(_CS_GNU_LIBPTHREAD_VERSION)
-@@ -692,6 +697,9 @@
-   confstr(_CS_GNU_LIBPTHREAD_VERSION, str, n);
-   os::Linux::set_libpthread_version(str);
- #endif
-+#else
-+  os::Linux::set_libpthread_version("NPTL");
-+#endif
- }
- 
- /////////////////////////////////////////////////////////////////////////////
-@@ -1527,7 +1535,13 @@
- 
- // This must be hard coded because it's the system's temporary
- // directory not the java application's temp directory, ala java.io.tmpdir.
--const char* os::get_temp_directory() { return "/tmp"; }
-+const char* os::get_temp_directory() {
-+#ifndef __ANDROID__
-+  return "/tmp";
-+#else
-+  return "/data/tmp";
-+#endif
-+}
- 
- // check if addr is inside libjvm.so
- bool os::address_is_in_vm(address addr) {
-@@ -1601,6 +1615,30 @@
-   if (offset) *offset = -1;
-   return false;
- }
-+
-+static bool read_so_path_from_maps(const char* so_name, char* buf, int buflen) {
-+  FILE *fp = fopen("/proc/self/maps", "r");
-+  assert(fp, "Failed to open /proc/self/maps");
-+  if (!fp) {
-+    return false;
-+  }
-+
-+  char maps_buffer[2048];
-+  while (fgets(maps_buffer, 2048, fp) != NULL) {
-+    if (strstr(maps_buffer, so_name) == NULL) {
-+      continue;
-+    }
-+
-+    char *so_path = strchr(maps_buffer, '/');
-+    so_path[strlen(so_path) - 1] = '\0'; // Cut trailing \n
-+    jio_snprintf(buf, buflen, "%s", so_path);
-+    fclose(fp);
-+    return true;
-+  }
-+
-+  fclose(fp);
-+  return false;
-+}
- 
- // Remember the stack's state. The Linux dynamic linker will change
- // the stack to 'executable' at most once, so we must safepoint only once.
-@@ -1994,6 +2032,7 @@
- }
- 
- const char* os::Linux::dll_path(void* lib) {
-+#ifdef RTLD_DI_LINKMAP
-   struct link_map *lmap;
-   const char* l_path = nullptr;
-   assert(lib != nullptr, "dll_path parameter must not be null");
-@@ -2003,6 +2042,9 @@
-     l_path = lmap->l_name;
-   }
-   return l_path;
-+#else
-+  return NULL;
-+#endif
- }
- 
- static unsigned count_newlines(const char* s) {
-@@ -2764,6 +2806,20 @@
-                                          CAST_FROM_FN_PTR(address, os::jvm_path),
-                                          dli_fname, sizeof(dli_fname), nullptr);
-   assert(ret, "cannot locate libjvm");
-+
-+#ifdef __ANDROID__
-+  if (dli_fname[0] == '\0') {
-+    return;
-+  }
-+
-+  if (strchr(dli_fname, '/') == NULL) {
-+    bool ok = read_so_path_from_maps(dli_fname, buf, buflen);
-+    assert(ok, "unable to turn relative libjvm.so path into absolute");
-+    return;
-+  }
-+
-+  snprintf(buf, buflen, /* "%s/lib/%s/server/%s", java_home_var, cpu_arch, */ "%s", dli_fname);
-+#else // !__ANDROID__
-   char *rp = nullptr;
-   if (ret && dli_fname[0] != '\0') {
-     rp = os::realpath(dli_fname, buf, buflen);
-@@ -2829,6 +2885,7 @@
-       }
-     }
-   }
-+#endif
- 
-   strncpy(saved_jvm_path, buf, MAXPATHLEN);
-   saved_jvm_path[MAXPATHLEN - 1] = '\0';
-@@ -3190,7 +3247,8 @@
-   }
- 
-   if (sched_getcpu() == -1) {
--    vm_exit_during_initialization("getcpu(2) system call not supported by kernel");
-+    // vm_exit_during_initialization
-+    warning("getcpu(2) system call not supported by kernel");
-   }
- }
- 
-@@ -3221,14 +3279,8 @@
-   // Especially in dockers, get_mempolicy is not allowed with the default configuration. So it's necessary
-   // to check whether the syscalls are available. Currently, only get_mempolicy is checked since checking
-   // others like mbind would cause unexpected side effects.
--#ifdef SYS_get_mempolicy
--  int dummy = 0;
--  if (syscall(SYS_get_mempolicy, &dummy, nullptr, 0, (void*)&dummy, 3) == -1) {
--    return false;
--  }
--#endif
--
--  return true;
-+
-+  return false;
- }
- 
- bool os::Linux::libnuma_init() {
-@@ -5197,7 +5249,46 @@
- // Linux doesn't yet have a (official) notion of processor sets,
- // so just return the system wide load average.
- int os::loadavg(double loadavg[], int nelem) {
--  return ::getloadavg(loadavg, nelem);
-+#ifndef __ANDROID__
-+   return ::getloadavg(loadavg, nelem);
-+#else
-+/*
-+ * Copyright (C) 2018 The Android Open Source Project
-+ * All rights reserved.
-+ *
-+ * Redistribution and use in source and binary forms, with or without
-+ * modification, are permitted provided that the following conditions
-+ * are met:
-+ *  * Redistributions of source code must retain the above copyright
-+ *    notice, this list of conditions and the following disclaimer.
-+ *  * Redistributions in binary form must reproduce the above copyright
-+ *    notice, this list of conditions and the following disclaimer in
-+ *    the documentation and/or other materials provided with the
-+ *    distribution.
-+ *
-+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
-+ * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
-+ * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
-+ * FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE
-+ * COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
-+ * INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,
-+ * BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS
-+ * OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED
-+ * AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
-+ * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT
-+ * OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
-+ * SUCH DAMAGE.
-+ */
-+
-+  if (nelem < 0) return -1;
-+  if (nelem > 3) nelem = 3;
-+  struct sysinfo si;
-+  if (sysinfo(&si) == -1) return -1;
-+  for (int i = 0; i < nelem; ++i) {
-+    loadavg[i] = static_cast<double>(si.loads[i]) / static_cast<double>(1 << SI_LOAD_SHIFT);
-+  }
-+  return nelem;
-+#endif
- }
- 
- // Get the default path to the core file
-Index: src/java.instrument/unix/native/libinstrument/EncodingSupport_md.c
-IDEA additional info:
-Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
-<+>UTF-8
-===================================================================
-diff --git a/src/java.instrument/unix/native/libinstrument/EncodingSupport_md.c b/src/java.instrument/unix/native/libinstrument/EncodingSupport_md.c
---- a/src/java.instrument/unix/native/libinstrument/EncodingSupport_md.c	(revision d8dcc396bf95a2fd1240f3b4d0588898d68cb0f0)
-+++ b/src/java.instrument/unix/native/libinstrument/EncodingSupport_md.c	(date 1762132063327)
-@@ -65,7 +65,11 @@
-     (void)setlocale(LC_ALL, "");
- 
-     /* Get the codeset name */
-+#ifndef __ANDROID__
-     codeset = (char*)nl_langinfo(CODESET);
-+#else
-+    codeset = "ASCII"; // (MB_CUR_MAX == 1) ? "ASCII" : "UTF-8";
-+#endif
-     if ( codeset == NULL || codeset[0] == 0 ) {
-         UTF_DEBUG(("NO codeset returned by nl_langinfo(CODESET)\n"));
-         return;
-Index: src/hotspot/os/posix/os_posix.cpp
-IDEA additional info:
-Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
-<+>UTF-8
-===================================================================
-diff --git a/src/hotspot/os/posix/os_posix.cpp b/src/hotspot/os/posix/os_posix.cpp
---- a/src/hotspot/os/posix/os_posix.cpp	(revision d8dcc396bf95a2fd1240f3b4d0588898d68cb0f0)
-+++ b/src/hotspot/os/posix/os_posix.cpp	(date 1762132015645)
-@@ -81,7 +81,9 @@
- #include <sys/wait.h>
- #include <time.h>
- #include <unistd.h>
-+#ifndef __ANDROID__
- #include <utmpx.h>
-+#endif
- 
- #ifdef __APPLE__
-   #include <crt_externs.h>
-@@ -545,6 +547,7 @@
- // unfortunately it does not work on macOS and Linux because the utx chain has no entry
- // for reboot at least on my test machines
- void os::Posix::print_uptime_info(outputStream* st) {
-+#ifndef __ANDROID__
-   int bootsec = -1;
-   time_t currsec = time(nullptr);
-   struct utmpx* ent;
-@@ -559,6 +562,7 @@
-   if (bootsec != -1) {
-     os::print_dhm(st, "OS uptime:", currsec-bootsec);
-   }
-+#endif
- }
- 
- static void print_rlimit(outputStream* st, const char* msg,
-@@ -1986,11 +1990,31 @@
-   const char* argv[4] = {"sh", "-c", cmd, nullptr};
-   pid_t pid = -1;
-   char** env = os::get_environ();
-+#ifndef __ANDROID__
-   // Note: cast is needed because posix_spawn() requires - for compatibility with ancient
-   // C-code - a non-const argv/envp pointer array. But it is fine to hand in literal
-   // strings and just cast the constness away. See also ProcessImpl_md.c.
-   int rc = ::posix_spawn(&pid, "/bin/sh", nullptr, nullptr, (char**) argv, env);
-   if (rc == 0) {
-+#else
-+  pid = ::fork();
-+
-+  if (pid < 0) {
-+    // fork failed
-+    return -1;
-+
-+  } else if (pid == 0) {
-+    // child process
-+
-+    ::execve("/bin/sh", (char* const*)argv, env);
-+
-+    // execve failed
-+    ::_exit(-1);
-+
-+  } else  {
-+    // copied from J2SE ..._waitForProcessExit() in UNIXProcess_md.c; we don't
-+    // care about the actual exit code, for now.
-+#endif
-     int status;
-     // Wait for the child process to exit.  This returns immediately if
-     // the child has already exited. */
-@@ -2015,9 +2039,11 @@
-       // Unknown exit code; pass it through
-       return status;
-     }
-+#ifndef __ANDROID__
-   } else {
-     // Don't log, we are inside error handling
-     return -1;
-+#endif
-   }
- }
- 
-Index: src/java.base/unix/native/libnet/net_util_md.h
-IDEA additional info:
-Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
-<+>UTF-8
-===================================================================
-diff --git a/src/java.base/unix/native/libnet/net_util_md.h b/src/java.base/unix/native/libnet/net_util_md.h
---- a/src/java.base/unix/native/libnet/net_util_md.h	(revision d8dcc396bf95a2fd1240f3b4d0588898d68cb0f0)
-+++ b/src/java.base/unix/native/libnet/net_util_md.h	(date 1762132015827)
-@@ -26,6 +26,9 @@
- #ifndef NET_UTILS_MD_H
- #define NET_UTILS_MD_H
- 
-+#ifdef ANDROID
-+#include <netinet/in.h>
-+#endif
- #include <netdb.h>
- #include <poll.h>
- #include <sys/socket.h>
-Index: src/java.base/share/classes/sun/launcher/resources/launcher.properties
-IDEA additional info:
-Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
-<+>UTF-8
-===================================================================
-diff --git a/src/java.base/share/classes/sun/launcher/resources/launcher.properties b/src/java.base/share/classes/sun/launcher/resources/launcher_en.properties
-rename from src/java.base/share/classes/sun/launcher/resources/launcher.properties
-rename to src/java.base/share/classes/sun/launcher/resources/launcher_en.properties
---- a/src/java.base/share/classes/sun/launcher/resources/launcher.properties	(revision d8dcc396bf95a2fd1240f3b4d0588898d68cb0f0)
-+++ b/src/java.base/share/classes/sun/launcher/resources/launcher_en.properties	(date 1762132063354)
-@@ -1,5 +1,5 @@
- #
--# Copyright (c) 2007, 2024, Oracle and/or its affiliates. All rights reserved.
-+# Copyright (c) 2007, 2023, Oracle and/or its affiliates. All rights reserved.
- # DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
- #
- # This code is free software; you can redistribute it and/or modify it
-@@ -26,14 +26,14 @@
- # Translators please note do not translate the options themselves
- java.launcher.opt.header  =   Usage: {0} [options] <mainclass> [args...]\n\
- \           (to execute a class)\n\
--\   or  {0} [options] -jar <jarfile>.jar [args...]\n\
-+\   or  {0} [options] -jar <jarfile> [args...]\n\
- \           (to execute a jar file)\n\
- \   or  {0} [options] -m <module>[/<mainclass>] [args...]\n\
- \       {0} [options] --module <module>[/<mainclass>] [args...]\n\
- \           (to execute the main class in a module)\n\
--\   or  {0} [options] <sourcefile>.java [args]\n\
--\           (to execute a source-file program)\n\n\
--\ Arguments following the main class, source file, -jar <jarfile>.jar,\n\
-+\   or  {0} [options] <sourcefile> [args]\n\
-+\           (to execute a single source-file program)\n\n\
-+\ Arguments following the main class, source file, -jar <jarfile>,\n\
- \ -m or --module <module>/<mainclass> are passed as the arguments to\n\
- \ main class.\n\n\
- \ where options include:\n\n
-@@ -46,15 +46,15 @@
- \    -cp <class search path of directories and zip/jar files>\n\
- \    -classpath <class search path of directories and zip/jar files>\n\
- \    --class-path <class search path of directories and zip/jar files>\n\
--\                  A "{0}"-separated list of directories, JAR archives,\n\
-+\                  A {0} separated list of directories, JAR archives,\n\
- \                  and ZIP archives to search for class files.\n\
- \    -p <module path>\n\
- \    --module-path <module path>...\n\
--\                  A "{0}"-separated list of elements, each element is a file path\n\
-+\                  A {0} separated list of elements, each element is a file path\n\
- \                  to a module or a directory containing modules. Each module is either\n\
- \                  a modular JAR or an exploded-module directory.\n\
- \    --upgrade-module-path <module path>...\n\
--\                  A "{0}"-separated list of elements, each element is a file path\n\
-+\                  A {0} separated list of elements, each element is a file path\n\
- \                  to a module or a directory containing modules to replace\n\
- \                  upgradeable modules in the runtime image. Each module is either\n\
- \                  a modular JAR or an exploded-module directory.\n\
-@@ -63,13 +63,8 @@
- \                  <module name> can also be ALL-DEFAULT, ALL-SYSTEM,\n\
- \                  ALL-MODULE-PATH.\n\
- \    --enable-native-access <module name>[,<module name>...]\n\
--\                  allow code in modules to access code and data outside the Java runtime.\n\
--\                  <module name> can also be ALL-UNNAMED to indicate code on the class path.\n\
--\    --illegal-native-access=<value>\n\
--\                  allow or deny access to code and data outside the Java runtime\n\
--\                  by code in modules for which native access is not explicitly enabled.\n\
--\                  <value> is one of "deny", "warn" or "allow". The default value is "warn".\n\
--\                  This option will be removed in a future release.\n\
-+\                  modules that are permitted to perform restricted native operations.\n\
-+\                  <module name> can also be ALL-UNNAMED.\n\
- \    --list-modules\n\
- \                  list observable modules and exit\n\
- \    -d <module name>\n\
-@@ -139,8 +134,11 @@
- \                      append to end of bootstrap class path\n\
- \    -Xcheck:jni       perform additional checks for JNI functions\n\
- \    -Xcomp            forces compilation of methods on first invocation\n\
--\    -Xdebug           does nothing; deprecated for removal in a future release.\n\
-+\    -Xdebug           does nothing. Provided for backward compatibility.\n\
- \    -Xdiag            show additional diagnostic messages\n\
-+\    -Xfuture          enable strictest checks, anticipating future default.\n\
-+\                      This option is deprecated and may be removed in a\n\
-+\                      future release.\n\
- \    -Xint             interpreted mode execution only\n\
- \    -Xinternalversion\n\
- \                      displays more detailed JVM version information than the\n\
-@@ -165,23 +163,13 @@
- \                      failures. It should not be used in production environments.\n\
- \    -XshowSettings    show all settings and continue\n\
- \    -XshowSettings:all\n\
--\                      show all settings in verbose detail and continue\n\
-+\                      show all settings and continue\n\
- \    -XshowSettings:locale\n\
- \                      show all locale related settings and continue\n\
- \    -XshowSettings:properties\n\
- \                      show all property settings and continue\n\
- \    -XshowSettings:vm\n\
- \                      show all vm related settings and continue\n\
--\    -XshowSettings:security\n\
--\                      show all security settings and continue\n\
--\    -XshowSettings:security:all\n\
--\                      show all security settings and continue\n\
--\    -XshowSettings:security:properties\n\
--\                      show security properties and continue\n\
--\    -XshowSettings:security:providers\n\
--\                      show static security provider settings and continue\n\
--\    -XshowSettings:security:tls\n\
--\                      show TLS related security settings and continue\n\
- \    -XshowSettings:system\n\
- \                      (Linux Only) show host system or container\n\
- \                      configuration and continue\n\
-@@ -214,11 +202,7 @@
- \    --finalization=<value>\n\
- \                      controls whether the JVM performs finalization of objects,\n\
- \                      where <value> is one of "enabled" or "disabled".\n\
--\                      Finalization is enabled by default.\n\
--\    --sun-misc-unsafe-memory-access=<value>\n\
--\                      allow or deny usage of unsupported API sun.misc.Unsafe\n\
--\                      <value> is one of "allow", "warn", "debug", or "deny".\n\
--\                      The default value is "warn".\n\n\
-+\                      Finalization is enabled by default.\n\n\
- These extra options are subject to change without notice.\n
- 
- # Translators please note do not translate the options themselves
-@@ -232,51 +216,33 @@
- \    -Xdock:icon=<path to icon file>\n\
- \                      override default icon displayed in dock\n\n
- 
--# Translators please note do not translate the options themselves
--java.launcher.opt.concise.header  =   Usage: java [java options...] <application> [application arguments...]\n\n\
--\Where <application> is one of:\n\
--\  <mainclass>                to execute the main method of a compiled main class\n\
--\  -jar <jarfile>.jar         to execute the main class of a JAR archive\n\
--\  -m <module>[/<mainclass>]  to execute the main class of a module\n\
--\  <sourcefile>.java          to compile and execute a source-file program\n\n\
--\Where key java options include:\n\
--\  --class-path <class path>\n\
--\    where <class path> is a list of directories and JAR archives to search for class files, separated by "{0}"\n\
--\  --module-path <module path>\n\
--\    where <module path> is a list of directories and JAR archives to search for modules, separated by "{0}"\n\
--\  -version\n\
--\    to print product version to the error stream and exit\n\n\
--\For additional help on usage:           java --help\n\
--\For an interactive Java environment:    jshell
--
--java.launcher.bad.option=\
--\n\
--Unrecognized showSettings option: {0}\n\
--    Valid values are \"all\", \"locale\", \"properties\", \"security\", \
--    \"system\"(Linux only), \"vm\"\n\
--    Valid \"security\" suboption values are \"all\", \"properties\", \"providers\", \"tls\"\n\
--    See \"java -X\"\n\
--
- java.launcher.cls.error1=\
-     Error: Could not find or load main class {0}\n\
-     Caused by: {1}: {2}
- java.launcher.cls.error2=\
-+    Error: Main method is not {0} in class {1}, please define the main method as:\n\
-+\   public static void main(String[] args)
-+java.launcher.cls.error3=\
-+    Error: Main method must return a value of type void in class {0}, please \n\
-+    define the main method as:\n\
-+\   public static void main(String[] args)
-+java.launcher.cls.error4=\
-     Error: Main method not found in class {0}, please define the main method as:\n\
- \   public static void main(String[] args)\n\
-     or a JavaFX application class must extend {1}
--java.launcher.cls.error3=\
-+java.launcher.cls.error5=\
-     Error: JavaFX runtime components are missing, and are required to run this application
--java.launcher.cls.error4=\
-+java.launcher.cls.error6=\
-     Error: LinkageError occurred while loading main class {0}\n\
-     \t{1}
--java.launcher.cls.error5=\
-+java.launcher.cls.error7=\
-      Error: Unable to initialize main class {0}\n\
-      Caused by: {1}: {2}
--java.launcher.cls.error6=\
-+java.launcher.cls.error8=\
-     Error: no non-private zero argument constructor found in class {0}\n\
-     remove private from existing constructor or define as:\n\
- \   public {0}()
--java.launcher.cls.error7=\
-+java.launcher.cls.error9=\
-     Error: non-static inner class {0} constructor can not be invoked \n\
-     make inner class static or move inner class out to separate source file
- java.launcher.jar.error1=\
-@@ -284,10 +250,6 @@
- java.launcher.jar.error2=manifest not found in {0}
- java.launcher.jar.error3=no main manifest attribute, in {0}
- java.launcher.jar.error4=error loading java agent in {0}
--java.launcher.jar.error5=\
--    Error: An unexpected error occurred while trying to close file {0}
--java.launcher.jar.error.illegal.ena.value=\
--    Error: illegal value \"{0}\" for Enable-Native-Access manifest attribute. Only 'ALL-UNNAMED' is allowed
- java.launcher.init.error=initialization error
- java.launcher.javafx.error1=\
-     Error: The JavaFX launchApplication method has the wrong signature, it\n\
-@@ -298,7 +260,7 @@
-     Error: Could not find or load main class {0} in module {1}
- java.launcher.module.error3=\
-     Error: Unable to load main class {0} in module {1}\n\
--    Caused by: {2}
-+    \t{2}
- java.launcher.module.error4=\
-     {0} not found
- java.launcher.module.error5=\
 Index: src/hotspot/os/linux/os_perf_linux.cpp
 IDEA additional info:
 Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
 <+>UTF-8
 ===================================================================
 diff --git a/src/hotspot/os/linux/os_perf_linux.cpp b/src/hotspot/os/linux/os_perf_linux.cpp
---- a/src/hotspot/os/linux/os_perf_linux.cpp	(revision d8dcc396bf95a2fd1240f3b4d0588898d68cb0f0)
-+++ b/src/hotspot/os/linux/os_perf_linux.cpp	(date 1762132015633)
+--- a/src/hotspot/os/linux/os_perf_linux.cpp	(revision 78770bfaefd23ae77ec4f8ddd769c1c2d9c282df)
++++ b/src/hotspot/os/linux/os_perf_linux.cpp	(date 1762133276757)
 @@ -44,9 +44,312 @@
  #include <dlfcn.h>
  #include <pthread.h>
@@ -1737,76 +1640,14 @@ diff --git a/src/hotspot/os/linux/os_perf_linux.cpp b/src/hotspot/os/linux/os_pe
  /**
     /proc/[number]/stat
                Status information about the process.  This is used by ps(1).  It is defined in /usr/src/linux/fs/proc/array.c.
-Index: src/java.base/unix/classes/sun/net/dns/ResolverConfigurationImpl.java
-IDEA additional info:
-Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
-<+>UTF-8
-===================================================================
-diff --git a/src/java.base/unix/classes/sun/net/dns/ResolverConfigurationImpl.java b/src/java.base/unix/classes/sun/net/dns/ResolverConfigurationImpl.java
---- a/src/java.base/unix/classes/sun/net/dns/ResolverConfigurationImpl.java	(revision d8dcc396bf95a2fd1240f3b4d0588898d68cb0f0)
-+++ b/src/java.base/unix/classes/sun/net/dns/ResolverConfigurationImpl.java	(date 1762132015768)
-@@ -63,8 +63,9 @@
-         ArrayList<String> ll = new ArrayList<>();
- 
-         try {
-+            String resolvPath = System.getProperty("ext.net.resolvPath", "/etc/resolv.conf");
-             BufferedReader in =
--                new BufferedReader(new FileReader("/etc/resolv.conf"));
-+                new BufferedReader(new FileReader(resolvPath));
-             String line;
-             while ((line = in.readLine()) != null) {
-                 int maxvalues = maxperkeyword;
-Index: src/hotspot/os_cpu/linux_aarch64/javaThread_linux_aarch64.hpp
-IDEA additional info:
-Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
-<+>UTF-8
-===================================================================
-diff --git a/src/hotspot/os_cpu/linux_aarch64/javaThread_linux_aarch64.hpp b/src/hotspot/os_cpu/linux_aarch64/javaThread_linux_aarch64.hpp
---- a/src/hotspot/os_cpu/linux_aarch64/javaThread_linux_aarch64.hpp	(revision d8dcc396bf95a2fd1240f3b4d0588898d68cb0f0)
-+++ b/src/hotspot/os_cpu/linux_aarch64/javaThread_linux_aarch64.hpp	(date 1762132015657)
-@@ -47,6 +47,8 @@
-   bool pd_get_top_frame(frame* fr_addr, void* ucontext, bool isInJava);
- public:
- 
--  static Thread *aarch64_get_thread_helper();
-+  static Thread *aarch64_get_thread_helper() {
-+    return Thread::current();
-+  }
- 
- #endif // OS_CPU_LINUX_AARCH64_JAVATHREAD_LINUX_AARCH64_HPP
-Index: src/hotspot/os_cpu/linux_aarch64/threadLS_linux_aarch64.S
-IDEA additional info:
-Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
-<+>UTF-8
-===================================================================
-diff --git a/src/hotspot/os_cpu/linux_aarch64/threadLS_linux_aarch64.S b/src/hotspot/os_cpu/linux_aarch64/threadLS_linux_aarch64.S
---- a/src/hotspot/os_cpu/linux_aarch64/threadLS_linux_aarch64.S	(revision d8dcc396bf95a2fd1240f3b4d0588898d68cb0f0)
-+++ b/src/hotspot/os_cpu/linux_aarch64/threadLS_linux_aarch64.S	(date 1762132015665)
-@@ -22,6 +22,7 @@
- 
- #include "defs.S.inc"
- 
-+#ifndef __ANDROID__
-         // JavaThread::aarch64_get_thread_helper()
-         //
-         // Return the current thread pointer in x0.
-@@ -44,7 +45,7 @@
-         ret
- 
-         .size _ZN10JavaThread25aarch64_get_thread_helperEv, .-_ZN10JavaThread25aarch64_get_thread_helperEv
--
-+#endif
- /* Emit .note.gnu.property section in case of PAC or BTI being enabled.
-  * For more details see "ELF for the Arm® 64-bit Architecture (AArch64)".
-  * https://github.com/ARM-software/abi-aa/blob/main/aaelf64/aaelf64.rst
 Index: make/autoconf/libraries.m4
 IDEA additional info:
 Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
 <+>UTF-8
 ===================================================================
 diff --git a/make/autoconf/libraries.m4 b/make/autoconf/libraries.m4
---- a/make/autoconf/libraries.m4	(revision d8dcc396bf95a2fd1240f3b4d0588898d68cb0f0)
-+++ b/make/autoconf/libraries.m4	(date 1762132015475)
+--- a/make/autoconf/libraries.m4	(revision 78770bfaefd23ae77ec4f8ddd769c1c2d9c282df)
++++ b/make/autoconf/libraries.m4	(date 1762133205395)
 @@ -42,8 +42,8 @@
  AC_DEFUN_ONCE([LIB_DETERMINE_DEPENDENCIES],
  [
@@ -1829,92 +1670,600 @@ diff --git a/make/autoconf/libraries.m4 b/make/autoconf/libraries.m4
      NEEDS_LIB_FONTCONFIG=false
    else
      # All other instances need fontconfig, even if building headless only,
-Index: src/java.base/unix/native/libnio/fs/UnixNativeDispatcher.c
+Index: src/hotspot/os_cpu/linux_aarch64/javaThread_linux_aarch64.hpp
 IDEA additional info:
 Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
 <+>UTF-8
 ===================================================================
-diff --git a/src/java.base/unix/native/libnio/fs/UnixNativeDispatcher.c b/src/java.base/unix/native/libnio/fs/UnixNativeDispatcher.c
---- a/src/java.base/unix/native/libnio/fs/UnixNativeDispatcher.c	(revision d8dcc396bf95a2fd1240f3b4d0588898d68cb0f0)
-+++ b/src/java.base/unix/native/libnio/fs/UnixNativeDispatcher.c	(date 1762132015839)
-@@ -66,12 +66,14 @@
- // by defining binary compatible statx structs in this file and
- // not relying on included headers.
+diff --git a/src/hotspot/os_cpu/linux_aarch64/javaThread_linux_aarch64.hpp b/src/hotspot/os_cpu/linux_aarch64/javaThread_linux_aarch64.hpp
+--- a/src/hotspot/os_cpu/linux_aarch64/javaThread_linux_aarch64.hpp	(revision 78770bfaefd23ae77ec4f8ddd769c1c2d9c282df)
++++ b/src/hotspot/os_cpu/linux_aarch64/javaThread_linux_aarch64.hpp	(date 1762133276785)
+@@ -47,6 +47,8 @@
+   bool pd_get_top_frame(frame* fr_addr, void* ucontext, bool isInJava);
+ public:
  
-+/*
- #ifndef __GLIBC__
- // Alpine doesn't know these types, define them
- typedef unsigned int       __uint32_t;
- typedef unsigned short     __uint16_t;
- typedef unsigned long int  __uint64_t;
- #endif
-+*/
- 
- /*
-  * Timestamp structure for the timestamps in struct statx.
-@@ -219,6 +221,41 @@
- static statx_func* my_statx_func = NULL;
- #endif
- 
-+#ifdef __ANDROID__
-+/*
-+ * TODO: Android lacks support for the methods listed below.  In it's place are
-+ * alternatives that use existing Android functionality, but lack reentrant
-+ * support.  Determine if the following are the most suitable alternatives.
-+ *
-+ */
-+int getgrgid_r(gid_t gid, struct group* grp, char* buf, size_t buflen, struct group** result) {
-+
-+  *result = NULL;
-+  errno = 0;
-+  grp = getgrgid(gid);
-+  if (grp == NULL) {
-+        return errno;
+-  static Thread *aarch64_get_thread_helper();
++  static Thread *aarch64_get_thread_helper() {
++    return Thread::current();
 +  }
-+  // buf not used by caller (see below)
-+  *result = grp;
-+  return 0;
-+}
+ 
+ #endif // OS_CPU_LINUX_AARCH64_JAVATHREAD_LINUX_AARCH64_HPP
+Index: src/hotspot/os/linux/os_linux.cpp
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/src/hotspot/os/linux/os_linux.cpp b/src/hotspot/os/linux/os_linux.cpp
+--- a/src/hotspot/os/linux/os_linux.cpp	(revision 78770bfaefd23ae77ec4f8ddd769c1c2d9c282df)
++++ b/src/hotspot/os/linux/os_linux.cpp	(date 1762133276735)
+@@ -137,10 +137,10 @@
+ 
+ #define MAX_PATH    (2 * K)
+ 
+-#ifdef MUSL_LIBC
++#if defined(MUSL_LIBC) || defined(__ANDROID__)
+ // dlvsym is not a part of POSIX
+ // and musl libc doesn't implement it.
+-static void *dlvsym(void *handle,
++void *dlvsym(void *handle,
+                     const char *symbol,
+                     const char *version) {
+    // load the latest version of symbol
+@@ -215,6 +215,8 @@
+ // avoid this
+ static bool suppress_primordial_thread_resolution = false;
+ 
++static bool read_so_path_from_maps(const char* so_name, char* buf, int buflen);
 +
-+int getgrnam_r(const char *name, struct group* grp, char* buf, size_t buflen, struct group** result) {
-+
-+  *result = NULL;
-+  errno = 0;
-+  grp = getgrnam(name);
-+  if (grp == NULL) {
-+        return errno;
-+  }
-+  // buf not used by caller (see below)
-+  *result = grp;
-+  return 0;
-+
-+}
+ // utility functions
+ 
+ julong os::Linux::available_memory_in_container() {
+@@ -470,12 +472,14 @@
+ 
+ #ifndef SYS_gettid
+ // i386: 224, amd64: 186, sparc: 143
+-  #if defined(__i386__)
++  #if defined(__i386__) || defined(__arm__)
+     #define SYS_gettid 224
+   #elif defined(__amd64__)
+     #define SYS_gettid 186
+   #elif defined(__sparc__)
+     #define SYS_gettid 143
++  #elif defined(__arm64__) || defined(__aarch64__)
++    #define SYS_gettid 178
+   #else
+     #error "Define SYS_gettid for this architecture"
+   #endif
+@@ -659,6 +663,7 @@
+ // detecting pthread library
+ 
+ void os::Linux::libpthread_init() {
++#ifndef __ANDROID__
+   // Save glibc and pthread version strings.
+ #if !defined(_CS_GNU_LIBC_VERSION) || \
+     !defined(_CS_GNU_LIBPTHREAD_VERSION)
+@@ -683,6 +688,9 @@
+   confstr(_CS_GNU_LIBPTHREAD_VERSION, str, n);
+   os::Linux::set_libpthread_version(str);
+ #endif
++#else
++  os::Linux::set_libpthread_version("NPTL");
 +#endif
+ }
+ 
+ /////////////////////////////////////////////////////////////////////////////
+@@ -1531,7 +1539,13 @@
+ 
+ // This must be hard coded because it's the system's temporary
+ // directory not the java application's temp directory, ala java.io.tmpdir.
+-const char* os::get_temp_directory() { return "/tmp"; }
++const char* os::get_temp_directory() {
++#ifndef __ANDROID__
++  return "/tmp";
++#else
++  return "/data/tmp";
++#endif
++}
+ 
+ // check if addr is inside libjvm.so
+ bool os::address_is_in_vm(address addr) {
+@@ -1605,6 +1619,30 @@
+   if (offset) *offset = -1;
+   return false;
+ }
 +
- /**
-  * fstatat missing from glibc on Linux.
-  */
-@@ -837,10 +874,10 @@
-     struct timeval times[2];
-     const char* path = (const char*)jlong_to_ptr(pathAddress);
++static bool read_so_path_from_maps(const char* so_name, char* buf, int buflen) {
++  FILE *fp = fopen("/proc/self/maps", "r");
++  assert(fp, "Failed to open /proc/self/maps");
++  if (!fp) {
++    return false;
++  }
++
++  char maps_buffer[2048];
++  while (fgets(maps_buffer, 2048, fp) != NULL) {
++    if (strstr(maps_buffer, so_name) == NULL) {
++      continue;
++    }
++
++    char *so_path = strchr(maps_buffer, '/');
++    so_path[strlen(so_path) - 1] = '\0'; // Cut trailing \n
++    jio_snprintf(buf, buflen, "%s", so_path);
++    fclose(fp);
++    return true;
++  }
++
++  fclose(fp);
++  return false;
++}
  
--    times[0].tv_sec = accessTime / 1000000;
-+    times[0].tv_sec = times2[0].tv_sec = accessTime / 1000000;
-     times[0].tv_usec = accessTime % 1000000;
+ // Remember the stack's state. The Linux dynamic linker will change
+ // the stack to 'executable' at most once, so we must safepoint only once.
+@@ -1998,6 +2036,7 @@
+ }
  
--    times[1].tv_sec = modificationTime / 1000000;
-+    times[1].tv_sec = times2[1].tv_sec = modificationTime / 1000000;
-     times[1].tv_usec = modificationTime % 1000000;
+ const char* os::Linux::dll_path(void* lib) {
++#ifdef RTLD_DI_LINKMAP
+   struct link_map *lmap;
+   const char* l_path = nullptr;
+   assert(lib != nullptr, "dll_path parameter must not be null");
+@@ -2007,6 +2046,9 @@
+     l_path = lmap->l_name;
+   }
+   return l_path;
++#else
++  return NULL;
++#endif
+ }
  
-     RESTARTABLE(utimes(path, &times[0]), err);
+ static unsigned count_newlines(const char* s) {
+@@ -2768,6 +2810,20 @@
+                                          CAST_FROM_FN_PTR(address, os::jvm_path),
+                                          dli_fname, sizeof(dli_fname), nullptr);
+   assert(ret, "cannot locate libjvm");
++
++#ifdef __ANDROID__
++  if (dli_fname[0] == '\0') {
++    return;
++  }
++
++  if (strchr(dli_fname, '/') == NULL) {
++    bool ok = read_so_path_from_maps(dli_fname, buf, buflen);
++    assert(ok, "unable to turn relative libjvm.so path into absolute");
++    return;
++  }
++
++  snprintf(buf, buflen, /* "%s/lib/%s/server/%s", java_home_var, cpu_arch, */ "%s", dli_fname);
++#else // !__ANDROID__
+   char *rp = nullptr;
+   if (ret && dli_fname[0] != '\0') {
+     rp = os::realpath(dli_fname, buf, buflen);
+@@ -2812,6 +2868,7 @@
+       }
+     }
+   }
++#endif
+ 
+   strncpy(saved_jvm_path, buf, MAXPATHLEN);
+   saved_jvm_path[MAXPATHLEN - 1] = '\0';
+@@ -3173,7 +3230,8 @@
+   }
+ 
+   if (sched_getcpu() == -1) {
+-    vm_exit_during_initialization("getcpu(2) system call not supported by kernel");
++    // vm_exit_during_initialization
++    warning("getcpu(2) system call not supported by kernel");
+   }
+ }
+ 
+@@ -3204,14 +3262,8 @@
+   // Especially in dockers, get_mempolicy is not allowed with the default configuration. So it's necessary
+   // to check whether the syscalls are available. Currently, only get_mempolicy is checked since checking
+   // others like mbind would cause unexpected side effects.
+-#ifdef SYS_get_mempolicy
+-  int dummy = 0;
+-  if (syscall(SYS_get_mempolicy, &dummy, nullptr, 0, (void*)&dummy, 3) == -1) {
+-    return false;
+-  }
+-#endif
+-
+-  return true;
++
++  return false;
+ }
+ 
+ bool os::Linux::libnuma_init() {
+@@ -5167,7 +5219,46 @@
+ // Linux doesn't yet have a (official) notion of processor sets,
+ // so just return the system wide load average.
+ int os::loadavg(double loadavg[], int nelem) {
+-  return ::getloadavg(loadavg, nelem);
++#ifndef __ANDROID__
++   return ::getloadavg(loadavg, nelem);
++#else
++/*
++ * Copyright (C) 2018 The Android Open Source Project
++ * All rights reserved.
++ *
++ * Redistribution and use in source and binary forms, with or without
++ * modification, are permitted provided that the following conditions
++ * are met:
++ *  * Redistributions of source code must retain the above copyright
++ *    notice, this list of conditions and the following disclaimer.
++ *  * Redistributions in binary form must reproduce the above copyright
++ *    notice, this list of conditions and the following disclaimer in
++ *    the documentation and/or other materials provided with the
++ *    distribution.
++ *
++ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
++ * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
++ * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
++ * FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE
++ * COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
++ * INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,
++ * BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS
++ * OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED
++ * AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
++ * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT
++ * OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
++ * SUCH DAMAGE.
++ */
++
++  if (nelem < 0) return -1;
++  if (nelem > 3) nelem = 3;
++  struct sysinfo si;
++  if (sysinfo(&si) == -1) return -1;
++  for (int i = 0; i < nelem; ++i) {
++    loadavg[i] = static_cast<double>(si.loads[i]) / static_cast<double>(1 << SI_LOAD_SHIFT);
++  }
++  return nelem;
++#endif
+ }
+ 
+ // Get the default path to the core file
+Index: src/java.base/unix/native/libnet/net_util_md.h
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/src/java.base/unix/native/libnet/net_util_md.h b/src/java.base/unix/native/libnet/net_util_md.h
+--- a/src/java.base/unix/native/libnet/net_util_md.h	(revision 78770bfaefd23ae77ec4f8ddd769c1c2d9c282df)
++++ b/src/java.base/unix/native/libnet/net_util_md.h	(date 1762133313767)
+@@ -26,6 +26,9 @@
+ #ifndef NET_UTILS_MD_H
+ #define NET_UTILS_MD_H
+ 
++#ifdef ANDROID
++#include <netinet/in.h>
++#endif
+ #include <netdb.h>
+ #include <poll.h>
+ #include <sys/socket.h>
+Index: src/java.base/share/classes/sun/launcher/resources/launcher.properties
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/src/java.base/share/classes/sun/launcher/resources/launcher.properties b/src/java.base/share/classes/sun/launcher/resources/launcher_en.properties
+rename from src/java.base/share/classes/sun/launcher/resources/launcher.properties
+rename to src/java.base/share/classes/sun/launcher/resources/launcher_en.properties
+--- a/src/java.base/share/classes/sun/launcher/resources/launcher.properties	(revision 78770bfaefd23ae77ec4f8ddd769c1c2d9c282df)
++++ b/src/java.base/share/classes/sun/launcher/resources/launcher_en.properties	(date 1762133313654)
+@@ -26,14 +26,14 @@
+ # Translators please note do not translate the options themselves
+ java.launcher.opt.header  =   Usage: {0} [options] <mainclass> [args...]\n\
+ \           (to execute a class)\n\
+-\   or  {0} [options] -jar <jarfile>.jar [args...]\n\
++\   or  {0} [options] -jar <jarfile> [args...]\n\
+ \           (to execute a jar file)\n\
+ \   or  {0} [options] -m <module>[/<mainclass>] [args...]\n\
+ \       {0} [options] --module <module>[/<mainclass>] [args...]\n\
+ \           (to execute the main class in a module)\n\
+-\   or  {0} [options] <sourcefile>.java [args]\n\
+-\           (to execute a source-file program)\n\n\
+-\ Arguments following the main class, source file, -jar <jarfile>.jar,\n\
++\   or  {0} [options] <sourcefile> [args]\n\
++\           (to execute a single source-file program)\n\n\
++\ Arguments following the main class, source file, -jar <jarfile>,\n\
+ \ -m or --module <module>/<mainclass> are passed as the arguments to\n\
+ \ main class.\n\n\
+ \ where options include:\n\n
+@@ -46,15 +46,15 @@
+ \    -cp <class search path of directories and zip/jar files>\n\
+ \    -classpath <class search path of directories and zip/jar files>\n\
+ \    --class-path <class search path of directories and zip/jar files>\n\
+-\                  A "{0}"-separated list of directories, JAR archives,\n\
++\                  A {0} separated list of directories, JAR archives,\n\
+ \                  and ZIP archives to search for class files.\n\
+ \    -p <module path>\n\
+ \    --module-path <module path>...\n\
+-\                  A "{0}"-separated list of elements, each element is a file path\n\
++\                  A {0} separated list of elements, each element is a file path\n\
+ \                  to a module or a directory containing modules. Each module is either\n\
+ \                  a modular JAR or an exploded-module directory.\n\
+ \    --upgrade-module-path <module path>...\n\
+-\                  A "{0}"-separated list of elements, each element is a file path\n\
++\                  A {0} separated list of elements, each element is a file path\n\
+ \                  to a module or a directory containing modules to replace\n\
+ \                  upgradeable modules in the runtime image. Each module is either\n\
+ \                  a modular JAR or an exploded-module directory.\n\
+@@ -63,13 +63,8 @@
+ \                  <module name> can also be ALL-DEFAULT, ALL-SYSTEM,\n\
+ \                  ALL-MODULE-PATH.\n\
+ \    --enable-native-access <module name>[,<module name>...]\n\
+-\                  allow code in modules to access code and data outside the Java runtime.\n\
+-\                  <module name> can also be ALL-UNNAMED to indicate code on the class path.\n\
+-\    --illegal-native-access=<value>\n\
+-\                  allow or deny access to code and data outside the Java runtime\n\
+-\                  by code in modules for which native access is not explicitly enabled.\n\
+-\                  <value> is one of "deny", "warn" or "allow". The default value is "warn".\n\
+-\                  This option will be removed in a future release.\n\
++\                  modules that are permitted to perform restricted native operations.\n\
++\                  <module name> can also be ALL-UNNAMED.\n\
+ \    --list-modules\n\
+ \                  list observable modules and exit\n\
+ \    -d <module name>\n\
+@@ -139,8 +134,11 @@
+ \                      append to end of bootstrap class path\n\
+ \    -Xcheck:jni       perform additional checks for JNI functions\n\
+ \    -Xcomp            forces compilation of methods on first invocation\n\
+-\    -Xdebug           does nothing; deprecated for removal in a future release.\n\
++\    -Xdebug           does nothing. Provided for backward compatibility.\n\
+ \    -Xdiag            show additional diagnostic messages\n\
++\    -Xfuture          enable strictest checks, anticipating future default.\n\
++\                      This option is deprecated and may be removed in a\n\
++\                      future release.\n\
+ \    -Xint             interpreted mode execution only\n\
+ \    -Xinternalversion\n\
+ \                      displays more detailed JVM version information than the\n\
+@@ -165,23 +163,13 @@
+ \                      failures. It should not be used in production environments.\n\
+ \    -XshowSettings    show all settings and continue\n\
+ \    -XshowSettings:all\n\
+-\                      show all settings in verbose detail and continue\n\
++\                      show all settings and continue\n\
+ \    -XshowSettings:locale\n\
+ \                      show all locale related settings and continue\n\
+ \    -XshowSettings:properties\n\
+ \                      show all property settings and continue\n\
+ \    -XshowSettings:vm\n\
+ \                      show all vm related settings and continue\n\
+-\    -XshowSettings:security\n\
+-\                      show all security settings and continue\n\
+-\    -XshowSettings:security:all\n\
+-\                      show all security settings and continue\n\
+-\    -XshowSettings:security:properties\n\
+-\                      show security properties and continue\n\
+-\    -XshowSettings:security:providers\n\
+-\                      show static security provider settings and continue\n\
+-\    -XshowSettings:security:tls\n\
+-\                      show TLS related security settings and continue\n\
+ \    -XshowSettings:system\n\
+ \                      (Linux Only) show host system or container\n\
+ \                      configuration and continue\n\
+@@ -214,11 +202,7 @@
+ \    --finalization=<value>\n\
+ \                      controls whether the JVM performs finalization of objects,\n\
+ \                      where <value> is one of "enabled" or "disabled".\n\
+-\                      Finalization is enabled by default.\n\
+-\    --sun-misc-unsafe-memory-access=<value>\n\
+-\                      allow or deny usage of unsupported API sun.misc.Unsafe\n\
+-\                      <value> is one of "allow", "warn", "debug", or "deny".\n\
+-\                      The default value is "warn".\n\n\
++\                      Finalization is enabled by default.\n\n\
+ These extra options are subject to change without notice.\n
+ 
+ # Translators please note do not translate the options themselves
+@@ -232,51 +216,33 @@
+ \    -Xdock:icon=<path to icon file>\n\
+ \                      override default icon displayed in dock\n\n
+ 
+-# Translators please note do not translate the options themselves
+-java.launcher.opt.concise.header  =   Usage: java [java options...] <application> [application arguments...]\n\n\
+-\Where <application> is one of:\n\
+-\  <mainclass>                to execute the main method of a compiled main class\n\
+-\  -jar <jarfile>.jar         to execute the main class of a JAR archive\n\
+-\  -m <module>[/<mainclass>]  to execute the main class of a module\n\
+-\  <sourcefile>.java          to compile and execute a source-file program\n\n\
+-\Where key java options include:\n\
+-\  --class-path <class path>\n\
+-\    where <class path> is a list of directories and JAR archives to search for class files, separated by "{0}"\n\
+-\  --module-path <module path>\n\
+-\    where <module path> is a list of directories and JAR archives to search for modules, separated by "{0}"\n\
+-\  -version\n\
+-\    to print product version to the error stream and exit\n\n\
+-\For additional help on usage:           java --help\n\
+-\For an interactive Java environment:    jshell
+-
+-java.launcher.bad.option=\
+-\n\
+-Unrecognized showSettings option: {0}\n\
+-    Valid values are \"all\", \"locale\", \"properties\", \"security\", \
+-    \"system\"(Linux only), \"vm\"\n\
+-    Valid \"security\" suboption values are \"all\", \"properties\", \"providers\", \"tls\"\n\
+-    See \"java -X\"\n\
+-
+ java.launcher.cls.error1=\
+     Error: Could not find or load main class {0}\n\
+     Caused by: {1}: {2}
+ java.launcher.cls.error2=\
++    Error: Main method is not {0} in class {1}, please define the main method as:\n\
++\   public static void main(String[] args)
++java.launcher.cls.error3=\
++    Error: Main method must return a value of type void in class {0}, please \n\
++    define the main method as:\n\
++\   public static void main(String[] args)
++java.launcher.cls.error4=\
+     Error: Main method not found in class {0}, please define the main method as:\n\
+ \   public static void main(String[] args)\n\
+     or a JavaFX application class must extend {1}
+-java.launcher.cls.error3=\
++java.launcher.cls.error5=\
+     Error: JavaFX runtime components are missing, and are required to run this application
+-java.launcher.cls.error4=\
++java.launcher.cls.error6=\
+     Error: LinkageError occurred while loading main class {0}\n\
+     \t{1}
+-java.launcher.cls.error5=\
++java.launcher.cls.error7=\
+      Error: Unable to initialize main class {0}\n\
+      Caused by: {1}: {2}
+-java.launcher.cls.error6=\
++java.launcher.cls.error8=\
+     Error: no non-private zero argument constructor found in class {0}\n\
+     remove private from existing constructor or define as:\n\
+ \   public {0}()
+-java.launcher.cls.error7=\
++java.launcher.cls.error9=\
+     Error: non-static inner class {0} constructor can not be invoked \n\
+     make inner class static or move inner class out to separate source file
+ java.launcher.cls.error8=\
+@@ -287,10 +253,6 @@
+ java.launcher.jar.error2=manifest not found in {0}
+ java.launcher.jar.error3=no main manifest attribute, in {0}
+ java.launcher.jar.error4=error loading java agent in {0}
+-java.launcher.jar.error5=\
+-    Error: An unexpected error occurred while trying to close file {0}
+-java.launcher.jar.error.illegal.ena.value=\
+-    Error: illegal value \"{0}\" for Enable-Native-Access manifest attribute. Only 'ALL-UNNAMED' is allowed
+ java.launcher.init.error=initialization error
+ java.launcher.javafx.error1=\
+     Error: The JavaFX launchApplication method has the wrong signature, it\n\
+@@ -301,7 +263,7 @@
+     Error: Could not find or load main class {0} in module {1}
+ java.launcher.module.error3=\
+     Error: Unable to load main class {0} in module {1}\n\
+-    Caused by: {2}
++    \t{2}
+ java.launcher.module.error4=\
+     {0} not found
+ java.launcher.module.error5=\
+Index: src/hotspot/os_cpu/linux_aarch64/threadLS_linux_aarch64.S
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/src/hotspot/os_cpu/linux_aarch64/threadLS_linux_aarch64.S b/src/hotspot/os_cpu/linux_aarch64/threadLS_linux_aarch64.S
+--- a/src/hotspot/os_cpu/linux_aarch64/threadLS_linux_aarch64.S	(revision 78770bfaefd23ae77ec4f8ddd769c1c2d9c282df)
++++ b/src/hotspot/os_cpu/linux_aarch64/threadLS_linux_aarch64.S	(date 1762133276795)
+@@ -22,6 +22,7 @@
+ 
+ #include "defs.S.inc"
+ 
++#ifndef __ANDROID__
+         // JavaThread::aarch64_get_thread_helper()
+         //
+         // Return the current thread pointer in x0.
+@@ -44,7 +45,7 @@
+         ret
+ 
+         .size _ZN10JavaThread25aarch64_get_thread_helperEv, .-_ZN10JavaThread25aarch64_get_thread_helperEv
+-
++#endif
+ /* Emit .note.gnu.property section in case of PAC or BTI being enabled.
+  * For more details see "ELF for the Arm(R) 64-bit Architecture (AArch64)".
+  * https://github.com/ARM-software/abi-aa/blob/main/aaelf64/aaelf64.rst
+Index: make/autoconf/lib-freetype.m4
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/make/autoconf/lib-freetype.m4 b/make/autoconf/lib-freetype.m4
+--- a/make/autoconf/lib-freetype.m4	(revision 78770bfaefd23ae77ec4f8ddd769c1c2d9c282df)
++++ b/make/autoconf/lib-freetype.m4	(date 1762133205363)
+@@ -105,7 +105,8 @@
+   FREETYPE_TO_USE=bundled
+   if test "x$OPENJDK_TARGET_OS" != "xwindows" && \
+       test "x$OPENJDK_TARGET_OS" != "xmacosx" && \
+-      test "x$OPENJDK_TARGET_OS" != "xaix"; then
++      test "x$OPENJDK_TARGET_OS" != "xaix" && \
++      test "x$OPENJDK_TARGET_OS" != "xandroid"; then
+     FREETYPE_TO_USE=system
+   fi
+   if test "x$with_freetype" != "x" ; then
+Index: src/java.instrument/unix/native/libinstrument/EncodingSupport_md.c
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/src/java.instrument/unix/native/libinstrument/EncodingSupport_md.c b/src/java.instrument/unix/native/libinstrument/EncodingSupport_md.c
+--- a/src/java.instrument/unix/native/libinstrument/EncodingSupport_md.c	(revision 78770bfaefd23ae77ec4f8ddd769c1c2d9c282df)
++++ b/src/java.instrument/unix/native/libinstrument/EncodingSupport_md.c	(date 1762133313791)
+@@ -65,7 +65,11 @@
+     (void)setlocale(LC_ALL, "");
+ 
+     /* Get the codeset name */
++#ifndef __ANDROID__
+     codeset = (char*)nl_langinfo(CODESET);
++#else
++    codeset = "ASCII"; // (MB_CUR_MAX == 1) ? "ASCII" : "UTF-8";
++#endif
+     if ( codeset == NULL || codeset[0] == 0 ) {
+         UTF_DEBUG(("NO codeset returned by nl_langinfo(CODESET)\n"));
+         return;
+Index: src/java.base/unix/classes/sun/net/dns/ResolverConfigurationImpl.java
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/src/java.base/unix/classes/sun/net/dns/ResolverConfigurationImpl.java b/src/java.base/unix/classes/sun/net/dns/ResolverConfigurationImpl.java
+--- a/src/java.base/unix/classes/sun/net/dns/ResolverConfigurationImpl.java	(revision 78770bfaefd23ae77ec4f8ddd769c1c2d9c282df)
++++ b/src/java.base/unix/classes/sun/net/dns/ResolverConfigurationImpl.java	(date 1762133313708)
+@@ -63,8 +63,9 @@
+         ArrayList<String> ll = new ArrayList<>();
+ 
+         try {
++            String resolvPath = System.getProperty("ext.net.resolvPath", "/etc/resolv.conf");
+             BufferedReader in =
+-                new BufferedReader(new FileReader("/etc/resolv.conf"));
++                new BufferedReader(new FileReader(resolvPath));
+             String line;
+             while ((line = in.readLine()) != null) {
+                 int maxvalues = maxperkeyword;
+Index: src/hotspot/cpu/arm/icache_arm.cpp
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/src/hotspot/cpu/arm/icache_arm.cpp b/src/hotspot/cpu/arm/icache_arm.cpp
+--- a/src/hotspot/cpu/arm/icache_arm.cpp	(revision 78770bfaefd23ae77ec4f8ddd769c1c2d9c282df)
++++ b/src/hotspot/cpu/arm/icache_arm.cpp	(date 1762133205658)
+@@ -30,7 +30,7 @@
+ 
+ 
+ static int icache_flush(address addr, int lines, int magic) {
+-  __builtin___clear_cache(addr, addr + (lines << ICache::log2_line_size));
++  __builtin___clear_cache((char*) addr, (char*) (addr + (lines << ICache::log2_line_size)));
+   return magic;
+ }
+ 
+Index: src/jdk.jdwp.agent/share/native/libjdwp/utf_util.c
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/src/jdk.jdwp.agent/share/native/libjdwp/utf_util.c b/src/jdk.jdwp.agent/share/native/libjdwp/utf_util.c
+--- a/src/jdk.jdwp.agent/share/native/libjdwp/utf_util.c	(revision 78770bfaefd23ae77ec4f8ddd769c1c2d9c282df)
++++ b/src/jdk.jdwp.agent/share/native/libjdwp/utf_util.c	(date 1762133313800)
+@@ -483,7 +483,11 @@
+         // locale is not initialized, do it now
+         if (setlocale(LC_ALL, "") != NULL) {
+             // nl_langinfo returns ANSI_X3.4-1968 by default
++#ifndef __ANDROID__
+             codeset = (char*)nl_langinfo(CODESET);
++#else
++            codeset = "ASCII";
++#endif
+         }
+ 
+         if (codeset == NULL) {
 Index: make/autoconf/flags-ldflags.m4
 IDEA additional info:
 Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
 <+>UTF-8
 ===================================================================
 diff --git a/make/autoconf/flags-ldflags.m4 b/make/autoconf/flags-ldflags.m4
---- a/make/autoconf/flags-ldflags.m4	(revision d8dcc396bf95a2fd1240f3b4d0588898d68cb0f0)
-+++ b/make/autoconf/flags-ldflags.m4	(date 1762132015444)
+--- a/make/autoconf/flags-ldflags.m4	(revision 78770bfaefd23ae77ec4f8ddd769c1c2d9c282df)
++++ b/make/autoconf/flags-ldflags.m4	(date 1762133205334)
 @@ -175,7 +175,9 @@
          test "x${OPENJDK_$1_CPU}" = xmips64el; then
        $1_CPU_LDFLAGS="${$1_CPU_LDFLAGS} -Wl,--hash-style=sysv"
@@ -1926,14 +2275,32 @@ diff --git a/make/autoconf/flags-ldflags.m4 b/make/autoconf/flags-ldflags.m4
      fi
  
    elif test "x$TOOLCHAIN_TYPE" = xmicrosoft; then
+Index: make/hotspot/lib/JvmOverrideFiles.gmk
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/make/hotspot/lib/JvmOverrideFiles.gmk b/make/hotspot/lib/JvmOverrideFiles.gmk
+--- a/make/hotspot/lib/JvmOverrideFiles.gmk	(revision 78770bfaefd23ae77ec4f8ddd769c1c2d9c282df)
++++ b/make/hotspot/lib/JvmOverrideFiles.gmk	(date 1762133205596)
+@@ -63,7 +63,8 @@
+       $(OPT_SPEED_SRC) \
+       #
+ 
+-  ifeq ($(call isTargetCpu, x86), true)
++  #ifeq ($(call isTargetCpu, x86), true)
++  ifeq (false, true)
+     # Performance measurements show that by compiling GC related code, we could
+     # significantly reduce the GC pause time on 32 bit Linux/Unix platforms by
+     # compiling without the PIC flag (-fPIC on linux).
 Index: src/hotspot/os_cpu/linux_arm/linux_arm_32.S
 IDEA additional info:
 Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
 <+>UTF-8
 ===================================================================
 diff --git a/src/hotspot/os_cpu/linux_arm/linux_arm_32.S b/src/hotspot/os_cpu/linux_arm/linux_arm_32.S
---- a/src/hotspot/os_cpu/linux_arm/linux_arm_32.S	(revision d8dcc396bf95a2fd1240f3b4d0588898d68cb0f0)
-+++ b/src/hotspot/os_cpu/linux_arm/linux_arm_32.S	(date 1762132015693)
+--- a/src/hotspot/os_cpu/linux_arm/linux_arm_32.S	(revision 78770bfaefd23ae77ec4f8ddd769c1c2d9c282df)
++++ b/src/hotspot/os_cpu/linux_arm/linux_arm_32.S	(date 1762133276835)
 @@ -66,7 +66,7 @@
          stmia to!, {r3 - r9, ip}
          bgt     dw_f2b_loop_32
@@ -2054,132 +2421,54 @@ diff --git a/src/hotspot/os_cpu/linux_arm/linux_arm_32.S b/src/hotspot/os_cpu/li
          beq     conjoint_longs_finish
          cmp     r2, #16
          blt	cl_b2f_copy_8
-Index: src/hotspot/cpu/arm/icache_arm.cpp
+Index: configure
 IDEA additional info:
 Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
 <+>UTF-8
 ===================================================================
-diff --git a/src/hotspot/cpu/arm/icache_arm.cpp b/src/hotspot/cpu/arm/icache_arm.cpp
---- a/src/hotspot/cpu/arm/icache_arm.cpp	(revision d8dcc396bf95a2fd1240f3b4d0588898d68cb0f0)
-+++ b/src/hotspot/cpu/arm/icache_arm.cpp	(date 1762132015586)
-@@ -30,7 +30,7 @@
+diff --git a/configure b/configure
+--- a/configure	(revision 78770bfaefd23ae77ec4f8ddd769c1c2d9c282df)
++++ b/configure	(date 1762133313807)
+@@ -28,10 +28,6 @@
+ # Get an absolute path to this script, since that determines the top-level directory.
+ source_path="$(dirname ${0})"
+ this_script_dir="$(cd -- "${source_path}" > /dev/null && pwd)"
+-if test -z "${this_script_dir}"; then
+-  echo "Error: Could not determine location of configure script"
+-  exit 1
+-fi
  
- 
- static int icache_flush(address addr, int lines, int magic) {
--  __builtin___clear_cache(addr, addr + (lines << ICache::log2_line_size));
-+  __builtin___clear_cache((char*) addr, (char*) (addr + (lines << ICache::log2_line_size)));
-   return magic;
- }
- 
-Index: src/hotspot/share/utilities/elfFile.hpp
+ # Delegate to wrapper, forcing wrapper to believe $0 is this script by using -c.
+ # This trick is needed to get autoconf to co-operate properly.
+Index: make/common/Utils.gmk
 IDEA additional info:
 Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
 <+>UTF-8
 ===================================================================
-diff --git a/src/hotspot/share/utilities/elfFile.hpp b/src/hotspot/share/utilities/elfFile.hpp
---- a/src/hotspot/share/utilities/elfFile.hpp	(revision d8dcc396bf95a2fd1240f3b4d0588898d68cb0f0)
-+++ b/src/hotspot/share/utilities/elfFile.hpp	(date 1762132015736)
-@@ -47,8 +47,10 @@
- typedef Elf64_Sym       Elf_Sym;
+diff --git a/make/common/Utils.gmk b/make/common/Utils.gmk
+--- a/make/common/Utils.gmk	(revision 78770bfaefd23ae77ec4f8ddd769c1c2d9c282df)
++++ b/make/common/Utils.gmk	(date 1762133205566)
+@@ -157,6 +157,12 @@
+ isTargetOs = \
+   $(strip $(if $(filter $(OPENJDK_TARGET_OS), $1), true, false))
  
- #if !defined(_ALLBSD_SOURCE) || defined(__APPLE__)
-+#ifndef ELF_ST_TYPE
- #define ELF_ST_TYPE ELF64_ST_TYPE
- #endif
-+#endif
++ifeq ($(call isTargetOs, android), true)
++  # PATCH: Since Android is Linux, so Linux specific things are also built for Android.
++  isTargetOs = \
++    $(strip $(if $(filter $(OPENJDK_TARGET_OS), $1), true, $(if $(filter linux, $1), true, false)))
++endif
++
+ isTargetOsType = \
+   $(strip $(if $(filter $(OPENJDK_TARGET_OS_TYPE), $1), true, false))
  
- #else
- 
-@@ -62,7 +64,7 @@
- typedef Elf32_Phdr      Elf_Phdr;
- typedef Elf32_Sym       Elf_Sym;
- 
--#if !defined(_ALLBSD_SOURCE) || defined(__APPLE__)
-+#if (!defined(_ALLBSD_SOURCE) || defined(__APPLE__)) && !defined(ELF_ST_TYPE)
- #define ELF_ST_TYPE ELF32_ST_TYPE
- #endif
- #endif
-Index: src/hotspot/os/linux/gc/z/zNUMA_linux.cpp
-IDEA additional info:
-Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
-<+>UTF-8
-===================================================================
-diff --git a/src/hotspot/os/linux/gc/z/zNUMA_linux.cpp b/src/hotspot/os/linux/gc/z/zNUMA_linux.cpp
---- a/src/hotspot/os/linux/gc/z/zNUMA_linux.cpp	(revision d8dcc396bf95a2fd1240f3b4d0588898d68cb0f0)
-+++ b/src/hotspot/os/linux/gc/z/zNUMA_linux.cpp	(date 1762132015594)
-@@ -31,41 +31,17 @@
- #include "utilities/debug.hpp"
- 
- void ZNUMA::pd_initialize() {
--  _enabled = UseNUMA;
-+  _enabled = false;
- }
- 
- uint32_t ZNUMA::count() {
--  if (!_enabled) {
--    // NUMA support not enabled
--    return 1;
--  }
-+  return 1;
-+}
- 
--  return os::Linux::numa_max_node() + 1;
--}
--
- uint32_t ZNUMA::id() {
--  if (!_enabled) {
--    // NUMA support not enabled
--    return 0;
--  }
-+  return 0;
-+}
- 
--  return os::Linux::get_node_by_cpu(ZCPU::id());
--}
--
- uint32_t ZNUMA::memory_id(uintptr_t addr) {
--  if (!_enabled) {
--    // NUMA support not enabled, assume everything belongs to node zero
--    return 0;
--  }
--
--  uint32_t id = (uint32_t)-1;
--
--  if (ZSyscall::get_mempolicy((int*)&id, nullptr, 0, (void*)addr, MPOL_F_NODE | MPOL_F_ADDR) == -1) {
--    ZErrno err;
--    fatal("Failed to get NUMA id for memory at " PTR_FORMAT " (%s)", addr, err.to_string());
--  }
--
--  assert(id < count(), "Invalid NUMA id");
--
--  return id;
-+  return 0;
- }
-Index: src/java.base/unix/native/libjava/jni_util_md.c
-IDEA additional info:
-Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
-<+>UTF-8
-===================================================================
-diff --git a/src/java.base/unix/native/libjava/jni_util_md.c b/src/java.base/unix/native/libjava/jni_util_md.c
---- a/src/java.base/unix/native/libjava/jni_util_md.c	(revision d8dcc396bf95a2fd1240f3b4d0588898d68cb0f0)
-+++ b/src/java.base/unix/native/libjava/jni_util_md.c	(date 1762132015791)
-@@ -31,7 +31,7 @@
- #include "jni_util.h"
- #include "dlfcn.h"
- 
--#if defined(LINUX) && (defined(_GNU_SOURCE) || \
-+#if !defined(__ANDROID__) && defined(LINUX) && (defined(_GNU_SOURCE) || \
-          (defined(_POSIX_C_SOURCE) && _POSIX_C_SOURCE < 200112L \
-              && defined(_XOPEN_SOURCE) && _XOPEN_SOURCE < 600))
- extern int __xpg_strerror_r(int, char *, size_t);
 Index: src/hotspot/os_cpu/linux_arm/os_linux_arm.cpp
 IDEA additional info:
 Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
 <+>UTF-8
 ===================================================================
 diff --git a/src/hotspot/os_cpu/linux_arm/os_linux_arm.cpp b/src/hotspot/os_cpu/linux_arm/os_linux_arm.cpp
---- a/src/hotspot/os_cpu/linux_arm/os_linux_arm.cpp	(revision d8dcc396bf95a2fd1240f3b4d0588898d68cb0f0)
-+++ b/src/hotspot/os_cpu/linux_arm/os_linux_arm.cpp	(date 1762132015708)
+--- a/src/hotspot/os_cpu/linux_arm/os_linux_arm.cpp	(revision 78770bfaefd23ae77ec4f8ddd769c1c2d9c282df)
++++ b/src/hotspot/os_cpu/linux_arm/os_linux_arm.cpp	(date 1762133276858)
 @@ -70,7 +70,11 @@
  # include <pwd.h>
  # include <poll.h>
@@ -2207,7 +2496,7 @@ diff --git a/src/hotspot/os_cpu/linux_arm/os_linux_arm.cpp b/src/hotspot/os_cpu/
  }
  
  char* os::non_memory_address_word() {
-@@ -436,8 +446,8 @@
+@@ -441,8 +451,8 @@
  #if !defined(__SOFTFP__) && defined(__VFP_FP__)
    // Turn on IEEE-754 compliant VFP mode
    __asm__ volatile (
@@ -2218,497 +2507,162 @@ diff --git a/src/hotspot/os_cpu/linux_arm/os_linux_arm.cpp b/src/hotspot/os_cpu/
      : /* no output */ : /* no input */ : "r0"
    );
  #endif
-Index: make/autoconf/platform.m4
+Index: src/java.base/unix/native/libnio/fs/UnixNativeDispatcher.c
 IDEA additional info:
 Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
 <+>UTF-8
 ===================================================================
-diff --git a/make/autoconf/platform.m4 b/make/autoconf/platform.m4
---- a/make/autoconf/platform.m4	(revision d8dcc396bf95a2fd1240f3b4d0588898d68cb0f0)
-+++ b/make/autoconf/platform.m4	(date 1762132015491)
-@@ -202,6 +202,10 @@
-       VAR_OS=linux
-       VAR_OS_TYPE=unix
-       ;;
-+    *android*)
-+      VAR_OS=linux
-+      VAR_OS_TYPE=unix
-+      ;;
-     *darwin*)
-       VAR_OS=macosx
-       VAR_OS_TYPE=unix
-Index: make/hotspot/lib/JvmOverrideFiles.gmk
-IDEA additional info:
-Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
-<+>UTF-8
-===================================================================
-diff --git a/make/hotspot/lib/JvmOverrideFiles.gmk b/make/hotspot/lib/JvmOverrideFiles.gmk
---- a/make/hotspot/lib/JvmOverrideFiles.gmk	(revision d8dcc396bf95a2fd1240f3b4d0588898d68cb0f0)
-+++ b/make/hotspot/lib/JvmOverrideFiles.gmk	(date 1762132015562)
-@@ -63,7 +63,8 @@
-       $(OPT_SPEED_SRC) \
-       #
+diff --git a/src/java.base/unix/native/libnio/fs/UnixNativeDispatcher.c b/src/java.base/unix/native/libnio/fs/UnixNativeDispatcher.c
+--- a/src/java.base/unix/native/libnio/fs/UnixNativeDispatcher.c	(revision 78770bfaefd23ae77ec4f8ddd769c1c2d9c282df)
++++ b/src/java.base/unix/native/libnio/fs/UnixNativeDispatcher.c	(date 1762133313775)
+@@ -70,12 +70,14 @@
+ // by defining binary compatible statx structs in this file and
+ // not relying on included headers.
  
--  ifeq ($(call isTargetCpu, x86), true)
-+  #ifeq ($(call isTargetCpu, x86), true)
-+  ifeq (false, true)
-     # Performance measurements show that by compiling GC related code, we could
-     # significantly reduce the GC pause time on 32 bit Linux/Unix platforms by
-     # compiling without the PIC flag (-fPIC on linux).
-Index: make/autoconf/lib-freetype.m4
-IDEA additional info:
-Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
-<+>UTF-8
-===================================================================
-diff --git a/make/autoconf/lib-freetype.m4 b/make/autoconf/lib-freetype.m4
---- a/make/autoconf/lib-freetype.m4	(revision d8dcc396bf95a2fd1240f3b4d0588898d68cb0f0)
-+++ b/make/autoconf/lib-freetype.m4	(date 1762132015463)
-@@ -105,7 +105,8 @@
-   FREETYPE_TO_USE=bundled
-   if test "x$OPENJDK_TARGET_OS" != "xwindows" && \
-       test "x$OPENJDK_TARGET_OS" != "xmacosx" && \
--      test "x$OPENJDK_TARGET_OS" != "xaix"; then
-+      test "x$OPENJDK_TARGET_OS" != "xaix" && \
-+      test "x$OPENJDK_TARGET_OS" != "xandroid"; then
-     FREETYPE_TO_USE=system
-   fi
-   if test "x$with_freetype" != "x" ; then
-Index: configure
-IDEA additional info:
-Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
-<+>UTF-8
-===================================================================
-diff --git a/configure b/configure
---- a/configure	(revision d8dcc396bf95a2fd1240f3b4d0588898d68cb0f0)
-+++ b/configure	(date 1762132063346)
-@@ -28,10 +28,6 @@
- # Get an absolute path to this script, since that determines the top-level directory.
- source_path="$(dirname ${0})"
- this_script_dir="$(cd -- "${source_path}" > /dev/null && pwd)"
--if test -z "${this_script_dir}"; then
--  echo "Error: Could not determine location of configure script"
--  exit 1
--fi
- 
- # Delegate to wrapper, forcing wrapper to believe $0 is this script by using -c.
- # This trick is needed to get autoconf to co-operate properly.
-Index: src/jdk.jdwp.agent/share/native/libjdwp/utf_util.c
-IDEA additional info:
-Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
-<+>UTF-8
-===================================================================
-diff --git a/src/jdk.jdwp.agent/share/native/libjdwp/utf_util.c b/src/jdk.jdwp.agent/share/native/libjdwp/utf_util.c
---- a/src/jdk.jdwp.agent/share/native/libjdwp/utf_util.c	(revision d8dcc396bf95a2fd1240f3b4d0588898d68cb0f0)
-+++ b/src/jdk.jdwp.agent/share/native/libjdwp/utf_util.c	(date 1762132063335)
-@@ -483,7 +483,11 @@
-         // locale is not initialized, do it now
-         if (setlocale(LC_ALL, "") != NULL) {
-             // nl_langinfo returns ANSI_X3.4-1968 by default
-+#ifndef __ANDROID__
-             codeset = (char*)nl_langinfo(CODESET);
-+#else
-+            codeset = "ASCII";
-+#endif
-         }
- 
-         if (codeset == NULL) {
-Index: src/java.desktop/unix/native/libawt/awt/awt_LoadLibrary.c
-IDEA additional info:
-Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
-<+>UTF-8
-===================================================================
-diff --git a/src/java.desktop/unix/native/libawt/awt/awt_LoadLibrary.c b/src/java.desktop/unix/native/libawt/awt/awt_LoadLibrary.c
---- a/src/java.desktop/unix/native/libawt/awt/awt_LoadLibrary.c	(revision d8dcc396bf95a2fd1240f3b4d0588898d68cb0f0)
-+++ b/src/java.desktop/unix/native/libawt/awt/awt_LoadLibrary.c	(date 1762132063287)
-@@ -30,6 +30,7 @@
- #include <jni.h>
- #include <jni_util.h>
- #include <jvm.h>
-+#include <stdbool.h>
- #include "gdefs.h"
- 
- #include <sys/param.h>
-@@ -95,6 +96,30 @@
-   #define HEADLESS_PATH "/libawt_headless.so"
++/*
+ #ifndef __GLIBC__
+ // Alpine doesn't know these types, define them
+ typedef unsigned int       __uint32_t;
+ typedef unsigned short     __uint16_t;
+ typedef unsigned long int  __uint64_t;
  #endif
++*/
  
-+static bool read_so_path_from_maps(const char* so_name, char* buf) {
-+  FILE *fp = fopen("/proc/self/maps", "r");
-+
-+  if (!fp) {
-+    return false;
-+  }
-+
-+  char maps_buffer[2048];
-+  while (fgets(maps_buffer, 2048, fp) != NULL) {
-+    if (strstr(maps_buffer, so_name) == NULL) {
-+      continue;
-+    }
-+
-+    char *so_path = strchr(maps_buffer, '/');
-+    so_path[strlen(so_path) - 1] = '\0'; // Cut trailing \n
-+      strcpy(buf,so_path);
-+    fclose(fp);
-+    return true;
-+  }
-+
-+  fclose(fp);
-+  return false;
-+}
-+
- jint
- AWT_OnLoad(JavaVM *vm, void *reserved)
- {
-@@ -136,6 +161,8 @@
-         dladdr((void *)AWT_OnLoad, &dlinfo);
-         if (realpath((char *)dlinfo.dli_fname, buf) == NULL) {
-             perror((char *)dlinfo.dli_fname);
-+        } else{
-+            read_so_path_from_maps(dlinfo.dli_fname, buf);
-         }
-         len = strlen(buf);
-         p = strrchr(buf, '/');
-Index: src/java.base/unix/native/libjava/java_props_md.c
-IDEA additional info:
-Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
-<+>UTF-8
-===================================================================
-diff --git a/src/java.base/unix/native/libjava/java_props_md.c b/src/java.base/unix/native/libjava/java_props_md.c
---- a/src/java.base/unix/native/libjava/java_props_md.c	(revision d8dcc396bf95a2fd1240f3b4d0588898d68cb0f0)
-+++ b/src/java.base/unix/native/libjava/java_props_md.c	(date 1762132015780)
-@@ -46,6 +46,100 @@
- #include "java_props_macosx.h"
+ /*
+  * Timestamp structure for the timestamps in struct statx.
+@@ -223,6 +225,41 @@
+ static statx_func* my_statx_func = NULL;
  #endif
  
 +#ifdef __ANDROID__
-+// From https://android.googlesource.com/platform/bionic/+/master/libc/bionic/langinfo.cpp
 +/*
-+ * Copyright (C) 2016 The Android Open Source Project
-+ * All rights reserved.
++ * TODO: Android lacks support for the methods listed below.  In it's place are
++ * alternatives that use existing Android functionality, but lack reentrant
++ * support.  Determine if the following are the most suitable alternatives.
 + *
-+ * Redistribution and use in source and binary forms, with or without
-+ * modification, are permitted provided that the following conditions
-+ * are met:
-+ *  * Redistributions of source code must retain the above copyright
-+ *    notice, this list of conditions and the following disclaimer.
-+ *  * Redistributions in binary form must reproduce the above copyright
-+ *    notice, this list of conditions and the following disclaimer in
-+ *    the documentation and/or other materials provided with the
-+ *    distribution.
-+ *
-+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
-+ * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
-+ * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
-+ * FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE
-+ * COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
-+ * INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,
-+ * BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS
-+ * OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED
-+ * AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
-+ * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT
-+ * OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
-+ * SUCH DAMAGE.
 + */
++int getgrgid_r(gid_t gid, struct group* grp, char* buf, size_t buflen, struct group** result) {
 +
-+char* nl_langinfo(nl_item item) {
-+  const char* result = "";
-+  switch (item) {
-+    case CODESET: result = (MB_CUR_MAX == 1) ? "ASCII" : "UTF-8"; break;
-+    case D_T_FMT: result = "%F %T %z"; break;
-+    case D_FMT: result = "%F"; break;
-+    case T_FMT: result = "%T"; break;
-+    case T_FMT_AMPM: result = "%I:%M:%S %p"; break;
-+    case AM_STR: result = "AM"; break;
-+    case PM_STR: result = "PM"; break;
-+    case DAY_1: result = "Sunday"; break;
-+    case DAY_2: result = "Monday"; break;
-+    case DAY_3: result = "Tuesday"; break;
-+    case DAY_4: result = "Wednesday"; break;
-+    case DAY_5: result = "Thursday"; break;
-+    case DAY_6: result = "Friday"; break;
-+    case DAY_7: result = "Saturday"; break;
-+    case ABDAY_1: result = "Sun"; break;
-+    case ABDAY_2: result = "Mon"; break;
-+    case ABDAY_3: result = "Tue"; break;
-+    case ABDAY_4: result = "Wed"; break;
-+    case ABDAY_5: result = "Thu"; break;
-+    case ABDAY_6: result = "Fri"; break;
-+    case ABDAY_7: result = "Sat"; break;
-+    case MON_1: result = "January"; break;
-+    case MON_2: result = "February"; break;
-+    case MON_3: result = "March"; break;
-+    case MON_4: result = "April"; break;
-+    case MON_5: result = "May"; break;
-+    case MON_6: result = "June"; break;
-+    case MON_7: result = "July"; break;
-+    case MON_8: result = "August"; break;
-+    case MON_9: result = "September"; break;
-+    case MON_10: result = "October"; break;
-+    case MON_11: result = "November"; break;
-+    case MON_12: result = "December"; break;
-+    case ABMON_1: result = "Jan"; break;
-+    case ABMON_2: result = "Feb"; break;
-+    case ABMON_3: result = "Mar"; break;
-+    case ABMON_4: result = "Apr"; break;
-+    case ABMON_5: result = "May"; break;
-+    case ABMON_6: result = "Jun"; break;
-+    case ABMON_7: result = "Jul"; break;
-+    case ABMON_8: result = "Aug"; break;
-+    case ABMON_9: result = "Sep"; break;
-+    case ABMON_10: result = "Oct"; break;
-+    case ABMON_11: result = "Nov"; break;
-+    case ABMON_12: result = "Dec"; break;
-+    case ERA: result = ""; break;
-+    case ERA_D_FMT: result = ""; break;
-+    case ERA_D_T_FMT: result = ""; break;
-+    case ERA_T_FMT: result = ""; break;
-+    case ALT_DIGITS: result = ""; break;
-+    case RADIXCHAR: result = "."; break;
-+    case THOUSEP: result = ""; break;
-+    case YESEXPR: result = "^[yY]"; break;
-+    case NOEXPR: result = "^[nN]"; break;
-+    case CRNCYSTR: result = ""; break;
-+    default: break;
++  *result = NULL;
++  errno = 0;
++  grp = getgrgid(gid);
++  if (grp == NULL) {
++        return errno;
 +  }
-+  return (char*) result;
++  // buf not used by caller (see below)
++  *result = grp;
++  return 0;
++}
++
++int getgrnam_r(const char *name, struct group* grp, char* buf, size_t buflen, struct group** result) {
++
++  *result = NULL;
++  errno = 0;
++  grp = getgrnam(name);
++  if (grp == NULL) {
++        return errno;
++  }
++  // buf not used by caller (see below)
++  *result = grp;
++  return 0;
++
 +}
 +#endif
 +
- #if defined(_ALLBSD_SOURCE)
- #if !defined(P_tmpdir)
- #include <paths.h>
-Index: src/hotspot/share/utilities/globalDefinitions_gcc.hpp
+ /**
+  * fstatat missing from glibc on Linux.
+  */
+@@ -864,10 +901,10 @@
+     struct timeval times[2];
+     const char* path = (const char*)jlong_to_ptr(pathAddress);
+ 
+-    times[0].tv_sec = accessTime / 1000000;
++    times[0].tv_sec = times2[0].tv_sec = accessTime / 1000000;
+     times[0].tv_usec = accessTime % 1000000;
+ 
+-    times[1].tv_sec = modificationTime / 1000000;
++    times[1].tv_sec = times2[1].tv_sec = modificationTime / 1000000;
+     times[1].tv_usec = modificationTime % 1000000;
+ 
+     RESTARTABLE(utimes(path, &times[0]), err);
+Index: src/hotspot/os/linux/gc/z/zNUMA_linux.cpp
 IDEA additional info:
 Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
 <+>UTF-8
 ===================================================================
-diff --git a/src/hotspot/share/utilities/globalDefinitions_gcc.hpp b/src/hotspot/share/utilities/globalDefinitions_gcc.hpp
---- a/src/hotspot/share/utilities/globalDefinitions_gcc.hpp	(revision d8dcc396bf95a2fd1240f3b4d0588898d68cb0f0)
-+++ b/src/hotspot/share/utilities/globalDefinitions_gcc.hpp	(date 1762132015748)
-@@ -59,6 +59,10 @@
- #include <limits.h>
- #include <errno.h>
+diff --git a/src/hotspot/os/linux/gc/z/zNUMA_linux.cpp b/src/hotspot/os/linux/gc/z/zNUMA_linux.cpp
+--- a/src/hotspot/os/linux/gc/z/zNUMA_linux.cpp	(revision 78770bfaefd23ae77ec4f8ddd769c1c2d9c282df)
++++ b/src/hotspot/os/linux/gc/z/zNUMA_linux.cpp	(date 1762133276691)
+@@ -33,7 +33,7 @@
+ #include "utilities/debug.hpp"
  
-+#if defined(__ANDROID__) && !defined(ANDROID)
-+#define ANDROID 1
+ void ZNUMA::pd_initialize() {
+-  _enabled = UseNUMA;
++  _enabled = false;
+ 
+   // UseNUMA and is_faked() are mutually excluded in zArguments.cpp.
+   _count = UseNUMA
+Index: src/hotspot/share/utilities/elfFile.hpp
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/src/hotspot/share/utilities/elfFile.hpp b/src/hotspot/share/utilities/elfFile.hpp
+--- a/src/hotspot/share/utilities/elfFile.hpp	(revision 78770bfaefd23ae77ec4f8ddd769c1c2d9c282df)
++++ b/src/hotspot/share/utilities/elfFile.hpp	(date 1762133276894)
+@@ -47,8 +47,10 @@
+ typedef Elf64_Sym       Elf_Sym;
+ 
+ #if !defined(_ALLBSD_SOURCE) || defined(__APPLE__)
++#ifndef ELF_ST_TYPE
+ #define ELF_ST_TYPE ELF64_ST_TYPE
+ #endif
 +#endif
-+
- #if defined(LINUX) || defined(_ALLBSD_SOURCE) || defined(_AIX)
- #include <signal.h>
- #ifndef __OpenBSD__
-Index: src/hotspot/os_cpu/linux_arm/fpu_control.h
-IDEA additional info:
-Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
-<+>UTF-8
-===================================================================
-diff --git a/src/hotspot/os_cpu/linux_arm/fpu_control.h b/src/hotspot/os_cpu/linux_arm/fpu_control.h
-new file mode 100644
---- /dev/null	(date 1762132015677)
-+++ b/src/hotspot/os_cpu/linux_arm/fpu_control.h	(date 1762132015677)
-@@ -0,0 +1,59 @@
-+/* FPU control word definitions.  ARM VFP version.
-+   Copyright (C) 2004-2019 Free Software Foundation, Inc.
-+   This file is part of the GNU C Library.
-+   The GNU C Library is free software; you can redistribute it and/or
-+   modify it under the terms of the GNU Lesser General Public
-+   License as published by the Free Software Foundation; either
-+   version 2.1 of the License, or (at your option) any later version.
-+   The GNU C Library is distributed in the hope that it will be useful,
-+   but WITHOUT ANY WARRANTY; without even the implied warranty of
-+   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-+   Lesser General Public License for more details.
-+   You should have received a copy of the GNU Lesser General Public
-+   License along with the GNU C Library.  If not, see
-+   <http://www.gnu.org/licenses/>.  */
-+#ifndef _FPU_CONTROL_H
-+#define _FPU_CONTROL_H
-+#if !(defined(_LIBC) && !defined(_LIBC_TEST)) && defined(__SOFTFP__)
-+#define _FPU_RESERVED 0xffffffff
-+#define _FPU_DEFAULT  0x00000000
-+typedef unsigned int fpu_control_t;
-+#define _FPU_GETCW(cw) (cw) = 0
-+#define _FPU_SETCW(cw) (void) (cw)
-+extern fpu_control_t __fpu_control;
-+#else
-+/* masking of interrupts */
-+#define _FPU_MASK_IM        0x00000100        /* invalid operation */
-+#define _FPU_MASK_ZM        0x00000200        /* divide by zero */
-+#define _FPU_MASK_OM        0x00000400        /* overflow */
-+#define _FPU_MASK_UM        0x00000800        /* underflow */
-+#define _FPU_MASK_PM        0x00001000        /* inexact */
-+#define _FPU_MASK_NZCV        0xf0000000        /* NZCV flags */
-+#define _FPU_MASK_RM        0x00c00000        /* rounding mode */
-+#define _FPU_MASK_EXCEPT 0x00001f1f        /* all exception flags */
-+/* Some bits in the FPSCR are not yet defined.  They must be preserved when
-+   modifying the contents.  */
-+#define _FPU_RESERVED        0x00086060
-+#define _FPU_DEFAULT    0x00000000
-+/* Default + exceptions enabled.  */
-+#define _FPU_IEEE        (_FPU_DEFAULT | 0x00001f00)
-+/* Type of the control word.  */
-+typedef unsigned int fpu_control_t;
-+/* Macros for accessing the hardware control word.  */
-+#ifdef __SOFTFP__
-+/* This is fmrx %0, fpscr.  */
-+# define _FPU_GETCW(cw) \
-+  __asm__ __volatile__ ("mrc p10, 7, %0, cr1, cr0, 0" : "=r" (cw))
-+/* This is fmxr fpscr, %0.  */
-+# define _FPU_SETCW(cw) \
-+  __asm__ __volatile__ ("mcr p10, 7, %0, cr1, cr0, 0" : : "r" (cw))
-+#else
-+# define _FPU_GETCW(cw) \
-+  __asm__ __volatile__ ("vmrs %0, fpscr" : "=r" (cw))
-+# define _FPU_SETCW(cw) \
-+  __asm__ __volatile__ ("vmsr fpscr, %0" : : "r" (cw))
-+#endif
-+/* Default control word set at startup.  */
-+extern fpu_control_t __fpu_control;
-+#endif /* __SOFTFP__ */
-+#endif /* _FPU_CONTROL_H */
-Index: src/hotspot/os_cpu/linux_x86/fpu_control.h
-IDEA additional info:
-Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
-<+>UTF-8
-===================================================================
-diff --git a/src/hotspot/os_cpu/linux_x86/fpu_control.h b/src/hotspot/os_cpu/linux_x86/fpu_control.h
-new file mode 100644
---- /dev/null	(date 1762132015716)
-+++ b/src/hotspot/os_cpu/linux_x86/fpu_control.h	(date 1762132015716)
-@@ -0,0 +1,109 @@
-+/* FPU control word bits.  x86 version.
-+   Copyright (C) 1993-2012 Free Software Foundation, Inc.
-+   This file is part of the GNU C Library.
-+   Contributed by Olaf Flebbe.
-+
-+   The GNU C Library is free software; you can redistribute it and/or
-+   modify it under the terms of the GNU Lesser General Public
-+   License as published by the Free Software Foundation; either
-+   version 2.1 of the License, or (at your option) any later version.
-+
-+   The GNU C Library is distributed in the hope that it will be useful,
-+   but WITHOUT ANY WARRANTY; without even the implied warranty of
-+   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-+   Lesser General Public License for more details.
-+
-+   You should have received a copy of the GNU Lesser General Public
-+   License along with the GNU C Library; if not, see
-+   <http://www.gnu.org/licenses/>.  */
-+
-+#ifndef _FPU_CONTROL_H
-+#define _FPU_CONTROL_H	1
-+
-+/* Note that this file sets on x86-64 only the x87 FPU, it does not
-+   touch the SSE unit.  */
-+
-+/* Here is the dirty part. Set up your 387 through the control word
-+ * (cw) register.
-+ *
-+ *     15-13    12  11-10  9-8     7-6     5    4    3    2    1    0
-+ * | reserved | IC | RC  | PC | reserved | PM | UM | OM | ZM | DM | IM
-+ *
-+ * IM: Invalid operation mask
-+ * DM: Denormalized operand mask
-+ * ZM: Zero-divide mask
-+ * OM: Overflow mask
-+ * UM: Underflow mask
-+ * PM: Precision (inexact result) mask
-+ *
-+ * Mask bit is 1 means no interrupt.
-+ *
-+ * PC: Precision control
-+ * 11 - round to extended precision
-+ * 10 - round to double precision
-+ * 00 - round to single precision
-+ *
-+ * RC: Rounding control
-+ * 00 - rounding to nearest
-+ * 01 - rounding down (toward - infinity)
-+ * 10 - rounding up (toward + infinity)
-+ * 11 - rounding toward zero
-+ *
-+ * IC: Infinity control
-+ * That is for 8087 and 80287 only.
-+ *
-+ * The hardware default is 0x037f which we use.
-+ */
-+
-+#include <features.h>
-+
-+/* masking of interrupts */
-+#define _FPU_MASK_IM  0x01
-+#define _FPU_MASK_DM  0x02
-+#define _FPU_MASK_ZM  0x04
-+#define _FPU_MASK_OM  0x08
-+#define _FPU_MASK_UM  0x10
-+#define _FPU_MASK_PM  0x20
-+
-+/* precision control */
-+#define _FPU_EXTENDED 0x300	/* libm requires double extended precision.  */
-+#define _FPU_DOUBLE   0x200
-+#define _FPU_SINGLE   0x0
-+
-+/* rounding control */
-+#define _FPU_RC_NEAREST 0x0    /* RECOMMENDED */
-+#define _FPU_RC_DOWN    0x400
-+#define _FPU_RC_UP      0x800
-+#define _FPU_RC_ZERO    0xC00
-+
-+#define _FPU_RESERVED 0xF0C0  /* Reserved bits in cw */
-+
-+
-+/* The fdlibm code requires strict IEEE double precision arithmetic,
-+   and no interrupts for exceptions, rounding to nearest.  */
-+
-+#define _FPU_DEFAULT  0x037f
-+
-+/* IEEE:  same as above.  */
-+#define _FPU_IEEE     0x037f
-+
-+/* Type of the control word.  */
-+typedef unsigned int fpu_control_t __attribute__ ((__mode__ (__HI__)));
-+
-+/* Macros for accessing the hardware control word.  "*&" is used to
-+   work around a bug in older versions of GCC.  __volatile__ is used
-+   to support combination of writing the control register and reading
-+   it back.  Without __volatile__, the old value may be used for reading
-+   back under compiler optimization.
-+
-+   Note that the use of these macros is not sufficient anymore with
-+   recent hardware nor on x86-64.  Some floating point operations are
-+   executed in the SSE/SSE2 engines which have their own control and
-+   status register.  */
-+#define _FPU_GETCW(cw) __asm__ __volatile__ ("fnstcw %0" : "=m" (*&cw))
-+#define _FPU_SETCW(cw) __asm__ __volatile__ ("fldcw %0" : : "m" (*&cw))
-+
-+/* Default control word set at startup.  */
-+extern fpu_control_t __fpu_control;
-+
-+#endif	/* fpu_control.h */
-Index: make/autoconf/toolchain.m4
-IDEA additional info:
-Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
-<+>UTF-8
-===================================================================
-diff --git a/make/autoconf/toolchain.m4 b/make/autoconf/toolchain.m4
---- a/make/autoconf/toolchain.m4	(revision d8dcc396bf95a2fd1240f3b4d0588898d68cb0f0)
-+++ b/make/autoconf/toolchain.m4	(date 1762132015503)
-@@ -872,11 +872,14 @@
  
-     PATH="$OLDPATH"
+ #else
  
--    TOOLCHAIN_EXTRACT_COMPILER_VERSION(BUILD_CC, [BuildC])
--    TOOLCHAIN_EXTRACT_COMPILER_VERSION(BUILD_CXX, [BuildC++])
--    TOOLCHAIN_PREPARE_FOR_VERSION_COMPARISONS([BUILD_], [OPENJDK_BUILD_], [build ])
--    TOOLCHAIN_EXTRACT_LD_VERSION(BUILD_LD, [build linker])
--    TOOLCHAIN_PREPARE_FOR_LD_VERSION_COMPARISONS([BUILD_], [OPENJDK_BUILD_])
-+    # xandroid
-+    if test "x$OPENJDK_BUILD_OS" != "xlinux"; then
-+      TOOLCHAIN_EXTRACT_COMPILER_VERSION(BUILD_CC, [BuildC])
-+      TOOLCHAIN_EXTRACT_COMPILER_VERSION(BUILD_CXX, [BuildC++])
-+      TOOLCHAIN_PREPARE_FOR_VERSION_COMPARISONS([BUILD_], [OPENJDK_BUILD_], [build ])
-+      TOOLCHAIN_EXTRACT_LD_VERSION(BUILD_LD, [build linker])
-+      TOOLCHAIN_PREPARE_FOR_LD_VERSION_COMPARISONS([BUILD_], [OPENJDK_BUILD_])
-+    fi
-   else
-     # If we are not cross compiling, use the normal target compilers for
-     # building the build platform executables.
+@@ -62,7 +64,7 @@
+ typedef Elf32_Phdr      Elf_Phdr;
+ typedef Elf32_Sym       Elf_Sym;
+ 
+-#if !defined(_ALLBSD_SOURCE) || defined(__APPLE__)
++#if (!defined(_ALLBSD_SOURCE) || defined(__APPLE__)) && !defined(ELF_ST_TYPE)
+ #define ELF_ST_TYPE ELF32_ST_TYPE
+ #endif
+ #endif
+Index: make/modules/java.desktop/Lib.gmk
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/make/modules/java.desktop/Lib.gmk b/make/modules/java.desktop/Lib.gmk
+--- a/make/modules/java.desktop/Lib.gmk	(revision 78770bfaefd23ae77ec4f8ddd769c1c2d9c282df)
++++ b/make/modules/java.desktop/Lib.gmk	(date 1762133205627)
+@@ -79,7 +79,7 @@
+       LIBS_windows := advapi32.lib dsound.lib ole32.lib user32.lib winmm.lib, \
+   ))
+ 
+-  TARGETS += $(BUILD_LIBJSOUND)
++  # TARGETS += $(BUILD_LIBJSOUND)
+ endif
+ 
+ ifeq ($(call isTargetOs, macosx), true)
+Index: make/common/Modules.gmk
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/make/common/Modules.gmk b/make/common/Modules.gmk
+--- a/make/common/Modules.gmk	(revision 78770bfaefd23ae77ec4f8ddd769c1c2d9c282df)
++++ b/make/common/Modules.gmk	(date 1762133205535)
+@@ -78,6 +78,10 @@
+ TOP_SRC_DIRS += \
+     $(TOPDIR)/src \
+     #
++ifeq ($(OPENJDK_TARGET_OS), android)
++  SRC_SUBDIRS += linux/classes
++endif
++
+ 
+ SRC_SUBDIRS += $(OPENJDK_TARGET_OS)/classes
+ ifneq ($(OPENJDK_TARGET_OS), $(OPENJDK_TARGET_OS_TYPE))
