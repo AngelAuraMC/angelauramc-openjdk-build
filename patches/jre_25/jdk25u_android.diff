@@ -747,6 +747,23 @@ diff --git a/make/common/JdkNativeCompilation.gmk b/make/common/JdkNativeCompila
  FindSrcDirsForComponent += \
    $(call uniq, $(wildcard \
        $(TOPDIR)/src/$(strip $1)/$(OPENJDK_TARGET_OS)/native/$(strip $2) \
+Index: make/autoconf/flags-cflags.m4
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/make/autoconf/flags-cflags.m4 b/make/autoconf/flags-cflags.m4
+--- a/make/autoconf/flags-cflags.m4	(revision d8dcc396bf95a2fd1240f3b4d0588898d68cb0f0)
++++ b/make/autoconf/flags-cflags.m4	(date 1762132381700)
+@@ -774,7 +774,7 @@
+   if test "x$TOOLCHAIN_TYPE" = xgcc; then
+     # This flag is required since GCC 6 as undefined behavior in OpenJDK code
+     # runs afoul of the more aggressive versions of this optimization.
+-    $1_TOOLCHAIN_CFLAGS="-fno-lifetime-dse"
++    # $1_TOOLCHAIN_CFLAGS="-fno-lifetime-dse"
+   fi
+ 
+   if test "x$TOOLCHAIN_TYPE" = xmicrosoft; then
 Index: make/common/Modules.gmk
 IDEA additional info:
 Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
