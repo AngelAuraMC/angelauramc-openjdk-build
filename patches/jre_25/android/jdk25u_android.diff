@@ -7,16 +7,22 @@ Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
 ===================================================================
 diff --git a/make/autoconf/flags-cflags.m4 b/make/autoconf/flags-cflags.m4
 --- a/make/autoconf/flags-cflags.m4	(revision 78770bfaefd23ae77ec4f8ddd769c1c2d9c282df)
-+++ b/make/autoconf/flags-cflags.m4	(date 1762133205304)
-@@ -781,7 +781,7 @@
-   if test "x$TOOLCHAIN_TYPE" = xgcc; then
++++ b/make/autoconf/flags-cflags.m4	(date 1762135808007)
+@@ -778,11 +778,11 @@
+     fi
+   fi
+ 
+-  if test "x$TOOLCHAIN_TYPE" = xgcc; then
++  #if test "x$TOOLCHAIN_TYPE" = xgcc; then
      # This flag is required since GCC 6 as undefined behavior in OpenJDK code
      # runs afoul of the more aggressive versions of this optimization.
 -    $1_TOOLCHAIN_CFLAGS="-fno-lifetime-dse"
-+    # $1_TOOLCHAIN_CFLAGS="-fno-lifetime-dse"
-   fi
+-  fi
++  #  $1_TOOLCHAIN_CFLAGS="-fno-lifetime-dse"
++  #fi
  
    if test "x$TOOLCHAIN_TYPE" = xmicrosoft; then
+     REPRODUCIBLE_CFLAGS="-experimental:deterministic"
 Index: src/java.base/unix/native/libjava/jni_util_md.c
 IDEA additional info:
 Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
