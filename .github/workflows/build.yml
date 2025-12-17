@@ -79,11 +79,11 @@ jobs:
           export TARGET_VERSION=${{ matrix.version }}
           bash "1_ci_build_arch_aarch64.sh"
 
-      #    - name: Upload JDK build output
-      #      uses: actions/upload-artifact@v4
-      #      with:
-      #        name: "jdk17-ios-aarch64"
-      #        path: jdk17*.tar.xz
+      - name: Upload JDK build output
+        uses: actions/upload-artifact@v4
+        with:
+          name: "jdk${{ matrix.version }}-ios-aarch64"
+          path: jdk${{ matrix.version }}-ios*.tar.xz
 
       - name: Upload JRE build output
         uses: actions/upload-artifact@v4
