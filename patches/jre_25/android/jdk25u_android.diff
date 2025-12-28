@@ -2520,7 +2520,7 @@ Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
 ===================================================================
 diff --git a/src/java.base/unix/native/libnio/fs/UnixNativeDispatcher.c b/src/java.base/unix/native/libnio/fs/UnixNativeDispatcher.c
 --- a/src/java.base/unix/native/libnio/fs/UnixNativeDispatcher.c	(revision 78770bfaefd23ae77ec4f8ddd769c1c2d9c282df)
-+++ b/src/java.base/unix/native/libnio/fs/UnixNativeDispatcher.c	(date 1762133313775)
++++ b/src/java.base/unix/native/libnio/fs/UnixNativeDispatcher.c	(date 1762139236234)
 @@ -70,12 +70,14 @@
  // by defining binary compatible statx structs in this file and
  // not relying on included headers.
@@ -2578,19 +2578,6 @@ diff --git a/src/java.base/unix/native/libnio/fs/UnixNativeDispatcher.c b/src/ja
  /**
   * fstatat missing from glibc on Linux.
   */
-@@ -864,10 +901,10 @@
-     struct timeval times[2];
-     const char* path = (const char*)jlong_to_ptr(pathAddress);
- 
--    times[0].tv_sec = accessTime / 1000000;
-+    times[0].tv_sec = times2[0].tv_sec = accessTime / 1000000;
-     times[0].tv_usec = accessTime % 1000000;
- 
--    times[1].tv_sec = modificationTime / 1000000;
-+    times[1].tv_sec = times2[1].tv_sec = modificationTime / 1000000;
-     times[1].tv_usec = modificationTime % 1000000;
- 
-     RESTARTABLE(utimes(path, &times[0]), err);
 Index: src/hotspot/os/linux/gc/z/zNUMA_linux.cpp
 IDEA additional info:
 Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
