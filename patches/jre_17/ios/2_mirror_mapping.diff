@@ -134,10 +134,10 @@ index 11aba1d33..c35a3a213 100644
    if (s == NULL) {
      return NULL;
 diff --git a/src/hotspot/os/bsd/os_bsd.cpp b/src/hotspot/os/bsd/os_bsd.cpp
-index 5ead2f154..e5ff68860 100644
+index eca9aa9c9..62b1a9594 100644
 --- a/src/hotspot/os/bsd/os_bsd.cpp
 +++ b/src/hotspot/os/bsd/os_bsd.cpp
-@@ -135,6 +135,130 @@ static volatile int processor_id_map[processor_id_map_size];
+@@ -136,6 +136,135 @@ static volatile int processor_id_map[processor_id_map_size];
  static volatile int processor_id_next = 0;
  #endif
  
@@ -150,10 +150,9 @@ index 5ead2f154..e5ff68860 100644
 +        "ret");
 +}
 +
-+bool DeviceRequiresTXMWorkaround() {
-+    if(__builtin_available(iOS 19.0, *)) {
++bool DeviceRequiresTXMWorkaround(bool condition) {
++    if(condition) {
 +        DIR *d = opendir("/private/preboot");
-+        if(!d) return false;
 +        struct dirent *dir;
 +        char txmPath[PATH_MAX];
 +        while ((dir = readdir(d)) != NULL) {
@@ -173,7 +172,7 @@ index 5ead2f154..e5ff68860 100644
 +    // the map we got has debuggable flag, r-x, setup mirrored map
 +    vm_address_t buf_rx = 0;
 +    if(MirrorMappedCodeCache) {
-+        if(DeviceRequiresTXMWorkaround()) {
++        if(DeviceRequiresTXMWorkaround(__builtin_available(iOS 19.0, *))) {
 +            printf("[JIT26] Requesting %zu MB for JIT mapping\n", bytes/ (1024 * 1024));
 +            buf_rx = (vm_address_t)BreakGetJITMapping(bytes);
 +        }
@@ -185,6 +184,12 @@ index 5ead2f154..e5ff68860 100644
 +        if(!buf_rx) {
 +            printf("[JIT26] Failed to allocate RX region\n");
 +            return NULL;
++        }
++        // on 17.0-18.x we fault in all pages to make TXM happy
++        if(DeviceRequiresTXMWorkaround(!__builtin_available(iOS 19.0, *))) {
++            mprotect((void*)buf_rx, bytes, PROT_READ | PROT_WRITE);
++            bzero((void*)buf_rx, bytes);
++            mprotect((void*)buf_rx, bytes, PROT_READ | PROT_EXEC);
 +        }
 +    } else {
 +        return NULL;
