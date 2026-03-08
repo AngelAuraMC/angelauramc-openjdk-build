@@ -2446,4 +2446,17 @@ diff --git a/make/data/hotspot-symbols/version-script-gcc.txt b/make/data/hotspo
 -    _fini;
 -    _init;
  };
+diff --git a/make/conf/branding.conf b/make/conf/branding.conf
+index 912e4f622..27fd26607 100644
+--- a/make/conf/branding.conf
++++ b/make/conf/branding.conf
+@@ -25,7 +25,7 @@
  
+ LAUNCHER_NAME=openjdk
+ PRODUCT_NAME=OpenJDK
+-PRODUCT_SUFFIX="Runtime Environment"
++PRODUCT_SUFFIX="Android Runtime Environment"
+ JDK_RC_PLATFORM_NAME=Platform
+ COMPANY_NAME=N/A
+ HOTSPOT_VM_DISTRO="OpenJDK"
+
