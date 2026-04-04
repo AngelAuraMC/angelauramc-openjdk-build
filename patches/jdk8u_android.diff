@@ -60920,4 +60920,50 @@ index 73a0ffbd..ed42738d 100644
 +PRODUCT_SUFFIX="Android Runtime Environment"
  JDK_RC_PLATFORM_NAME=Platform
  COMPANY_NAME=N/A
-
+diff --git a/jdk/src/share/classes/java/net/NetworkInterface.java b/jdk/src/share/classes/java/net/NetworkInterface.java
+index 0b47e3dd..0d9678ea 100644
+--- a/jdk/src/share/classes/java/net/NetworkInterface.java
++++ b/jdk/src/share/classes/java/net/NetworkInterface.java
+@@ -453,23 +453,25 @@ public final class NetworkInterface {
+      * @since 1.6
+      */
+     public byte[] getHardwareAddress() throws SocketException {
+-        SecurityManager sec = System.getSecurityManager();
+-        if (sec != null) {
+-            try {
+-                sec.checkPermission(new NetPermission("getNetworkInformation"));
+-            } catch (SecurityException e) {
+-                if (!getInetAddresses().hasMoreElements()) {
+-                    // don't have connect permission to any local address
+-                    return null;
+-                }
+-            }
+-        }
+-        for (InetAddress addr : addrs) {
+-            if (addr instanceof Inet4Address) {
+-                return getMacAddr0(((Inet4Address)addr).getAddress(), name, index);
+-            }
+-        }
+-        return getMacAddr0(null, name, index);
++        return null; // Android does not allow getting mac address without requesting permissions.
++                     // Just make whatever is calling it deal with the fact this is nullable.
++        // SecurityManager sec = System.getSecurityManager();
++        // if (sec != null) {
++        //     try {
++        //         sec.checkPermission(new NetPermission("getNetworkInformation"));
++        //     } catch (SecurityException e) {
++        //         if (!getInetAddresses().hasMoreElements()) {
++        //             // don't have connect permission to any local address
++        //             return null;
++        //         }
++        //     }
++        // }
++        // for (InetAddress addr : addrs) {
++        //     if (addr instanceof Inet4Address) {
++        //         return getMacAddr0(((Inet4Address)addr).getAddress(), name, index);
++        //     }
++        // }
++        // return getMacAddr0(null, name, index);
+     }
+ 
+     /**
