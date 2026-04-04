@@ -60909,11 +60909,11 @@ index 303c96d788..aa555cc286 100644
 +
      /**
 diff --git a/common/autoconf/version-numbers b/common/autoconf/version-numbers
-index 73a0ffbd..ed42738d 100644
+index b612b491..e64faa79 100644
 --- a/common/autoconf/version-numbers
 +++ b/common/autoconf/version-numbers
 @@ -29,7 +29,7 @@ JDK_MICRO_VERSION=0
- JDK_UPDATE_VERSION=462
+ JDK_UPDATE_VERSION=482
  LAUNCHER_NAME=openjdk
  PRODUCT_NAME=OpenJDK
 -PRODUCT_SUFFIX="Runtime Environment"
