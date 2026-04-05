@@ -1,4 +1,4 @@
-name: Build OpenJDK 8 for Android
+name: Build OpenJDK 25 for Android
 
 on:
   push:
@@ -11,7 +11,7 @@ jobs:
   build_android:
     strategy:
       matrix:
-        arch: [ "aarch32", "aarch64", "x86", "x86_64" ]
+        arch: [ "aarch64" ]
       fail-fast: false
 
     name: "Build for Android ${{matrix.arch}}"
@@ -19,11 +19,11 @@ jobs:
     steps:
     - name: Checkout repository
       uses: actions/checkout@v4
-    - name: set up JDK 1.7
+    - name: set up JDK 25
       uses: actions/setup-java@v4
       with:
-        java-version: 8
-        distribution: zulu
+        java-version: '25-ea' # Đây là bản mày cần để fix lỗi version 69.0
+        distribution: 'zulu'
     - name: Install build dependencies
       run: |
         sudo apt update
@@ -33,8 +33,8 @@ jobs:
     - name: Upload JDK build output
       uses: actions/upload-artifact@v4
       with:
-        name: "jdk8-${{matrix.arch}}"
-        path: jdk8-android*.tar.xz
+        name: "jdk25-${{matrix.arch}}"
+        path: jdk25-android*.tar.xz
 
     - name: Setup tmate session if failed
       if: ${{ failure() }}
@@ -43,78 +43,5 @@ jobs:
     - name: Upload JRE build output
       uses: actions/upload-artifact@v4
       with:
-        name: 'jre8-${{matrix.arch}}'
-        path: jre8-android*.tar.xz
-    - name: Upload JRE debuginfo build output
-      uses: actions/upload-artifact@v4
-      with:
-        name: "jre8-debuginfo-${{matrix.arch}}"
-        path: dizout
-
-  build_iosport:
-    name: "Build for iOS aarch64"
-    runs-on: J316sAP
-    continue-on-error: true
-    steps:
-    - name: Checkout repository
-      uses: actions/checkout@v4
-
-    - name: Build with CI build script
-      run: |
-        export BUILD_IOS=1 J316SAP=1
-        #brew install awk
-        #echo "/opt/procursus/bin:/opt/procursus/local/bin:/Users/eilionoir/.local/bin:/opt/homebrew/bin:/Users/eilionoir/Library/Python/3.9/bin:/Library/Frameworks/Python.framework/Versions/3.10/bin:/usr/local/bin:/System/Cryptexes/App/usr/bin:/usr/bin:/bin:/usr/sbin:/sbin:/opt/X11/bin:/Library/Apple/usr/bin:/opt/procursus/games" > $GITHUB_PATH
-        export PATH=/opt/procursus/bin:/opt/homebrew/bin:$PATH
-        bash "ci_build_arch_aarch64.sh"
-
-    - name: Upload JDK build output
-      uses: actions/upload-artifact@v4
-      with:
-        name: "jdk8-ios-aarch64"
-        path: jdk8-ios*.tar.xz
-
-    - name: Upload JRE build output
-      uses: actions/upload-artifact@v4
-      with:
-        name: 'jre8-ios-aarch64'
-        path: jre8-ios*.tar.xz
-
-    - name: Upload JRE debuginfo build output
-      uses: actions/upload-artifact@v4
-      with:
-        name: "jre8-ios-debuginfo-aarch64"
-        path: dizout
-
-  pojav:
-    needs: build_android
-    runs-on: ubuntu-22.04
-    steps:
-    - name: Checkout repository
-      uses: actions/checkout@v4
-    - name: Get jre8-aarch32
-      uses: actions/download-artifact@v4
-      with:
-        name: jre8-aarch32
-        path: pojav
-    - name: Get jre8-aarch64
-      uses: actions/download-artifact@v4
-      with:
-        name: jre8-aarch64
-        path: pojav
-    - name: Get jre8-x86
-      uses: actions/download-artifact@v4
-      with:
-        name: jre8-x86
-        path: pojav
-    - name: Get jre8-x86_64
-      uses: actions/download-artifact@v4
-      with:
-        name: jre8-x86_64
-        path: pojav
-    - name: Repack JRE
-      run: bash "repackjre.sh" $GITHUB_WORKSPACE/pojav $GITHUB_WORKSPACE/pojav/jre8-pojav
-    - name: Upload artifact
-      uses: actions/upload-artifact@v4
-      with:
-          name: jre8-pojav
-          path: pojav/jre8-pojav/*
+        name: 'jre25-${{matrix.arch}}'
+        path: jre25-android*.tar.xz
