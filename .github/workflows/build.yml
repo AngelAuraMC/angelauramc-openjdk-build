@@ -1,4 +1,4 @@
-name: Build OpenJDK 25 for Android
+name: Build OpenJDK 25 for IOS
 
 on:
   push:
@@ -14,7 +14,7 @@ jobs:
         arch: [ "aarch64" ]
       fail-fast: false
 
-    name: "Build for Android ${{matrix.arch}}"
+    name: "Build for IOS ${{matrix.arch}}"
     runs-on: ubuntu-22.04
     steps:
     - name: Checkout repository
@@ -34,7 +34,7 @@ jobs:
       uses: actions/upload-artifact@v4
       with:
         name: "jdk25-${{matrix.arch}}"
-        path: jdk25-android*.tar.xz
+        path: jdk25-ios*.tar.xz
 
     - name: Setup tmate session if failed
       if: ${{ failure() }}
@@ -44,4 +44,4 @@ jobs:
       uses: actions/upload-artifact@v4
       with:
         name: 'jre25-${{matrix.arch}}'
-        path: jre25-android*.tar.xz
+        path: jre25-ios*.tar.xz
