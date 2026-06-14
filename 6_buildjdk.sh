@@ -95,6 +95,15 @@ if [[ "$BUILD_IOS" != "1" ]]; then
 else
   find ../patches/jre_${TARGET_VERSION}/ios -name "*.diff" -print0 | sort -z | xargs -0 -I {} sh -c 'echo "Applying {}" && git apply --reject --whitespace=fix {} || (echo "git apply failed (iOs patch set)" && exit 1)' 
 
+  # JDK 25 has more source changes between 21 and 25 than the base patch
+  # handles cleanly. Run the fixup script to patch the remaining hunks.
+  if [[ $TARGET_VERSION -eq 25 ]]; then
+    if [ -f "../patches/jre_25/ios/ios_sed_fixes.py" ]; then
+      echo "Running JDK 25 iOS fixups..."
+      python3 ../patches/jre_25/ios/ios_sed_fixes.py .
+    fi
+  fi
+
   # Hack: exclude building macOS stuff
   desktop_mac=src/java.desktop/macosx
   mv ${desktop_mac} ${desktop_mac}_NOTIOS

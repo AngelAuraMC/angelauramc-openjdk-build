@@ -1,0 +1,1556 @@
+diff --git a/src/hotspot/cpu/aarch64/assembler_aarch64.hpp b/src/hotspot/cpu/aarch64/assembler_aarch64.hpp
+index dafb4f522..9e2be821d 100644
+--- a/src/hotspot/cpu/aarch64/assembler_aarch64.hpp
++++ b/src/hotspot/cpu/aarch64/assembler_aarch64.hpp
+@@ -213,6 +213,7 @@ public:
+   }
+ 
+   static ALWAYSINLINE void patch(address a, int msb, int lsb, uint64_t val) {
++    a = mirror_w(a);
+     int nbits = msb - lsb + 1;
+     guarantee(val < (1ULL << nbits), "Field too big for insn");
+     assert_cond(msb >= lsb);
+@@ -226,6 +227,7 @@ public:
+   }
+ 
+   static void spatch(address a, int msb, int lsb, int64_t val) {
++    a = mirror_w(a);
+     int nbits = msb - lsb + 1;
+     int64_t chk = val >> (nbits - 1);
+     guarantee (chk == -1 || chk == 0, "Field too big for insn at " INTPTR_FORMAT, p2i(a));
+diff --git a/src/hotspot/cpu/aarch64/nativeInst_aarch64.cpp b/src/hotspot/cpu/aarch64/nativeInst_aarch64.cpp
+index f304eaa4f..fc1a01b28 100644
+--- a/src/hotspot/cpu/aarch64/nativeInst_aarch64.cpp
++++ b/src/hotspot/cpu/aarch64/nativeInst_aarch64.cpp
+@@ -273,7 +273,7 @@ void NativeMovConstReg::set_data(intptr_t x) {
+         break;
+       } else if (iter.type() == relocInfo::metadata_type) {
+         Metadata** metadata_addr = iter.metadata_reloc()->metadata_addr();
+-        *metadata_addr = (Metadata*)x;
++        *mirror_w(metadata_addr) = (Metadata*)x;
+         break;
+       }
+     }
+@@ -303,7 +303,7 @@ void NativeMovRegMem::set_offset(int x) {
+   unsigned insn = *(unsigned*)pc;
+   if (maybe_cpool_ref(pc)) {
+     address addr = MacroAssembler::target_addr_for_insn(pc);
+-    *(int64_t*)addr = x;
++    *(int64_t*)mirror_w(addr) = x;
+   } else {
+     MacroAssembler::pd_patch_instruction(pc, (address)intptr_t(x));
+     ICache::invalidate_range(instruction_address(), instruction_size);
+@@ -458,7 +458,7 @@ bool NativeInstruction::is_sigill_not_entrant() {
+ }
+ 
+ void NativeIllegalInstruction::insert(address code_pos) {
+-  *(juint*)code_pos = 0xd4bbd5a1; // dcps1 #0xdead
++  *(juint*)mirror_w(code_pos) = 0xd4bbd5a1; // dcps1 #0xdead
+ }
+ 
+ bool NativeInstruction::is_stop() {
+@@ -483,7 +483,7 @@ void NativeJump::patch_verified_entry(address entry, address verified_entry, add
+     guarantee(disp < 1 << 27 && disp > - (1 << 27), "branch overflow");
+ 
+     unsigned int insn = (0b000101 << 26) | ((disp >> 2) & 0x3ffffff);
+-    *(unsigned int*)verified_entry = insn;
++    *(unsigned int*)mirror_w(verified_entry) = insn;
+   } else {
+     // We use an illegal instruction for marking a method as not_entrant.
+     NativeIllegalInstruction::insert(verified_entry);
+@@ -578,7 +578,7 @@ void NativeDeoptInstruction::insert(address code_pos) {
+   // 0xd4, 0x20, 0x00, 0x00
+   uint32_t insn = 0xd4ade001;
+   uint32_t *pos = (uint32_t *) code_pos;
+-  *pos = insn;
++  *mirror_w(pos) = insn;
+   /**code_pos = 0xd4;
+   *(code_pos+1) = 0x60;
+   *(code_pos+2) = 0x00;
+diff --git a/src/hotspot/cpu/aarch64/nativeInst_aarch64.hpp b/src/hotspot/cpu/aarch64/nativeInst_aarch64.hpp
+index 0c0122c89..3d8494b93 100644
+--- a/src/hotspot/cpu/aarch64/nativeInst_aarch64.hpp
++++ b/src/hotspot/cpu/aarch64/nativeInst_aarch64.hpp
+@@ -89,6 +89,7 @@ public:
+ 
+ protected:
+   address addr_at(int offset) const { return address(this) + offset; }
++  address addr_rw_at(int offset) const { return mirror_w(addr_at(offset)); }
+ 
+   s_char sbyte_at(int offset) const { return *(s_char*)addr_at(offset); }
+   u_char ubyte_at(int offset) const { return *(u_char*)addr_at(offset); }
+@@ -97,11 +98,11 @@ protected:
+   address ptr_at(int offset) const { return *(address*)addr_at(offset); }
+   oop oop_at(int offset) const { return *(oop*)addr_at(offset); }
+ 
+-  void set_char_at(int offset, char c) { *addr_at(offset) = (u_char)c; }
+-  void set_int_at(int offset, jint i) { *(jint*)addr_at(offset) = i; }
+-  void set_uint_at(int offset, jint i) { *(juint*)addr_at(offset) = i; }
+-  void set_ptr_at(int offset, address ptr) { *(address*)addr_at(offset) = ptr; }
+-  void set_oop_at(int offset, oop o) { *(oop*)addr_at(offset) = o; }
++  void set_char_at(int offset, char c) { *addr_rw_at(offset) = (u_char)c; }
++  void set_int_at(int offset, jint i) { *(jint*)addr_rw_at(offset) = i; }
++  void set_uint_at(int offset, jint i) { *(juint*)addr_rw_at(offset) = i; }
++  void set_ptr_at(int offset, address ptr) { *(address*)addr_rw_at(offset) = ptr; }
++  void set_oop_at(int offset, oop o) { *(oop*)addr_rw_at(offset) = o; }
+ 
+   void wrote(int offset);
+ 
+diff --git a/src/hotspot/cpu/aarch64/vtableStubs_aarch64.cpp b/src/hotspot/cpu/aarch64/vtableStubs_aarch64.cpp
+index c895ff5cc..d864c9d8a 100644
+--- a/src/hotspot/cpu/aarch64/vtableStubs_aarch64.cpp
++++ b/src/hotspot/cpu/aarch64/vtableStubs_aarch64.cpp
+@@ -51,6 +51,7 @@ VtableStub* VtableStubs::create_vtable_stub(int vtable_index) {
+   // Read "A word on VtableStub sizing" in share/code/vtableStubs.hpp for details on stub sizing.
+   const int stub_code_length = code_size_limit(true);
+   VtableStub* s = new(stub_code_length) VtableStub(true, vtable_index);
++  s = mirror_x(s);
+   // Can be null if there is no free space in the code cache.
+   if (s == nullptr) {
+     return nullptr;
+@@ -141,6 +142,7 @@ VtableStub* VtableStubs::create_itable_stub(int itable_index) {
+   // Read "A word on VtableStub sizing" in share/code/vtableStubs.hpp for details on stub sizing.
+   const int stub_code_length = code_size_limit(false);
+   VtableStub* s = new(stub_code_length) VtableStub(false, itable_index);
++  s = mirror_x(s);
+   // Can be null if there is no free space in the code cache.
+   if (s == nullptr) {
+     return nullptr;
+diff --git a/src/hotspot/os/bsd/os_bsd.cpp b/src/hotspot/os/bsd/os_bsd.cpp
+index faf9d9f64..8828e855b 100644
+--- a/src/hotspot/os/bsd/os_bsd.cpp
++++ b/src/hotspot/os/bsd/os_bsd.cpp
+@@ -136,6 +136,129 @@ static volatile int processor_id_map[processor_id_map_size];
+ static volatile int processor_id_next = 0;
+ #endif
+ 
++#ifdef __APPLE__
++address os::Bsd::debug_jit_mapping_mirrored = NULL;
++
++__attribute__((naked,noinline,optnone))
++char* BreakGetJITMapping(size_t bytes) {
++    asm("brk #0x69 \n"
++        "ret");
++}
++
++bool DeviceRequiresTXMWorkaround() {
++    if(__builtin_available(iOS 19.0, *)) {
++        DIR *d = opendir("/private/preboot");
++        struct dirent *dir;
++        char txmPath[PATH_MAX];
++        while ((dir = readdir(d)) != NULL) {
++            if(strlen(dir->d_name) == 96) {
++                snprintf(txmPath, sizeof(txmPath), "/private/preboot/%s/usr/standalone/firmware/FUD/Ap,TrustedExecutionMonitor.img4", dir->d_name);
++                break;
++            }
++        }
++        closedir(d);
++        return access(txmPath, F_OK) == 0;
++    } else {
++        return false;
++    }
++}
++
++char* get_debug_jit_mapping(size_t bytes) {
++    // the map we got has debuggable flag, r-x, setup mirrored map
++    vm_address_t buf_rx = 0;
++    if(MirrorMappedCodeCache) {
++        if(DeviceRequiresTXMWorkaround()) {
++            printf("[JIT26] Requesting %zu MB for JIT mapping\n", bytes/ (1024 * 1024));
++            buf_rx = (vm_address_t)BreakGetJITMapping(bytes);
++        }
++        if(buf_rx) {
++            printf("[JIT26] Got JIT mapping %p from debugger\n", (void*)buf_rx);
++        } else {
++            buf_rx = (vm_address_t)mmap(NULL, bytes, PROT_READ | PROT_EXEC, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
++        }
++        if(!buf_rx) {
++            printf("[JIT26] Failed to allocate RX region\n");
++            return NULL;
++        }
++    } else {
++        return NULL;
++    }
++    vm_address_t buf_rw = 0;
++
++    vm_prot_t cur_prot, max_prot;
++
++    kern_return_t ret = vm_remap(mach_task_self(), &buf_rw, bytes, 0,
++                                 VM_FLAGS_ANYWHERE, mach_task_self(), buf_rx, false, &cur_prot,
++                                 &max_prot, VM_INHERIT_NONE);
++    if (ret != KERN_SUCCESS) {
++        fprintf(stderr, "[JIT26] Failed to remap RX region %d\n", ret);
++        return NULL;
++    }
++
++    // Protect region as RW
++    ret = vm_protect(mach_task_self(), buf_rw, bytes, FALSE,
++                     VM_PROT_READ | VM_PROT_WRITE);
++    if (ret != KERN_SUCCESS) {
++        fprintf(stderr, "[JIT26] Failed to set RW protection %d\n", ret);
++        return NULL;
++    }
++
++    printf("[JIT26] mapping at RW=%p, RX=%p\n", (void*)buf_rw, (void*)buf_rx);
++
++    os::Bsd::debug_jit_mapping_mirrored = (address)buf_rw;
++    return (char *)buf_rx;
++    //os::Bsd::debug_jit_mapping_mirrored = (address)buf_rx;
++    //return (char *)buf_rw;
++}
++
++
++// TODO: handle segmented mappings?
++#define _mirror_rw_to_rx addr + (debug_jit_mapping_mirrored ? (low_bound - debug_jit_mapping_mirrored) : 0)
++#define _mirror_rx_to_rw addr + (debug_jit_mapping_mirrored ? (debug_jit_mapping_mirrored - low_bound) : 0)
++address os::Bsd::mirrored_swap_wx(address addr) {
++    address low_bound = CodeCache::low_bound();
++    address high_bound = CodeCache::high_bound();
++    if(addr >= low_bound && addr < high_bound) {
++        return _mirror_rx_to_rw;
++    } else {
++        return _mirror_rw_to_rx;
++    }
++}
++// get_debug_jit_mapping returns rx map
++address os::Bsd::mirrored_find_rw(address addr) {
++    if(!MirrorMappedCodeCache) return addr;
++    address low_bound = CodeCache::low_bound();
++    address high_bound = CodeCache::high_bound();
++    size_t size = high_bound - low_bound;
++    if(addr >= low_bound && addr < high_bound) {
++        return _mirror_rx_to_rw;
++    } else {
++        return addr;
++    }
++}
++address os::Bsd::mirrored_find_rx(address addr) {
++    if(!MirrorMappedCodeCache) return addr;
++    address low_bound = CodeCache::low_bound();
++    address high_bound = CodeCache::high_bound();
++    size_t size = high_bound - low_bound;
++    if(addr >= low_bound && addr < high_bound) {
++        return addr;
++    } else if(addr >= debug_jit_mapping_mirrored && addr < debug_jit_mapping_mirrored + size) {
++        return _mirror_rw_to_rx;
++    } else {
++        return addr;
++    }
++}
++
++bool os::Bsd::isRWXJITAvailable() {
++  return false; //rwxAvailable;
++}
++#else
++bool os::Bsd::isRWXJITAvailable() {
++  return true;
++}
++#endif
++
+ ////////////////////////////////////////////////////////////////////////////////
+ // utility functions
+ 
+@@ -757,26 +880,6 @@ void os::Bsd::clock_init() {
+ 
+ 
+ 
+-#ifdef __APPLE__
+-static bool rwxChecked, rwxAvailable;
+-#endif
+-bool os::Bsd::isRWXJITAvailable() {
+-#ifdef __APPLE__
+-  if (!rwxChecked) {
+-    rwxChecked = true;
+-    const int flags = MAP_PRIVATE | MAP_NORESERVE | MAP_ANONYMOUS | MAP_JIT;
+-    char* addr = (char*)::mmap(0, getpagesize(), PROT_NONE, flags, -1, 0);
+-    rwxAvailable = addr != MAP_FAILED;
+-    if (rwxAvailable) {
+-      ::munmap(addr, getpagesize());
+-    }
+-  }
+-  return rwxAvailable;
+-#else
+-  return true;
+-#endif
+-}
+-
+ #ifdef __APPLE__
+ 
+ jlong os::javaTimeNanos() {
+@@ -1576,7 +1679,7 @@ bool os::pd_commit_memory(char* addr, size_t size, bool exec) {
+ #elif defined(__APPLE__)
+   if (exec) {
+     // Do not replace MAP_JIT mappings, see JDK-8234930
+-    if (::mprotect(addr, size, prot) == 0) {
++    if (os::Bsd::debug_jit_mapping_mirrored || ::mprotect(addr, size, prot) == 0) {
+       return true;
+     }
+   } else {
+@@ -1726,6 +1829,14 @@ static int anon_munmap(char * addr, size_t size) {
+ }
+ 
+ char* os::pd_reserve_memory(size_t bytes, bool exec) {
++#ifdef __APPLE__
++    if(exec) {
++        char *map = get_debug_jit_mapping(bytes);
++        if(map) {
++            return map;
++        }
++    }
++#endif
+   return anon_mmap(nullptr /* addr */, bytes, exec);
+ }
+ 
+diff --git a/src/hotspot/os/bsd/os_bsd.hpp b/src/hotspot/os/bsd/os_bsd.hpp
+index 320709429..1887a6c2b 100644
+--- a/src/hotspot/os/bsd/os_bsd.hpp
++++ b/src/hotspot/os/bsd/os_bsd.hpp
+@@ -27,6 +27,12 @@
+ 
+ #include "runtime/os.hpp"
+ 
++#ifdef __APPLE__
++#define mirror_w(x) ((decltype(x))os::Bsd::mirrored_find_rw((address)x))
++#define mirror_x(x) ((decltype(x))os::Bsd::mirrored_find_rx((address)x))
++#define mirror_w_set(x) *mirror_w(&(x))
++#endif
++
+ // Bsd_OS defines the interface to Bsd operating systems
+ 
+ class os::Bsd {
+@@ -56,7 +62,11 @@ class os::Bsd {
+   static bool hugetlbfs_sanity_check(bool warn, size_t page_size);
+ 
+  public:
++  static address debug_jit_mapping_mirrored;
+ 
++  static address mirrored_swap_wx(address addr);
++  static address mirrored_find_rw(address addr);
++  static address mirrored_find_rx(address addr);
+   static bool isRWXJITAvailable();
+   static void init_thread_fpu_state();
+   static pthread_t main_thread(void)                                { return _main_thread; }
+diff --git a/src/hotspot/os/posix/signals_posix.cpp b/src/hotspot/os/posix/signals_posix.cpp
+index bc16a535a..a2650a10a 100644
+--- a/src/hotspot/os/posix/signals_posix.cpp
++++ b/src/hotspot/os/posix/signals_posix.cpp
+@@ -579,20 +579,18 @@ int JVM_HANDLE_XXX_SIGNAL(int sig, siginfo_t* info,
+   // Hopefully placing W^X handing here is safe enough, maybe check repeat?
+   if (!os::Bsd::isRWXJITAvailable() && sig == SIGBUS) {
+     address pc = (address) os::Posix::ucontext_get_pc(uc);
+-    //static address last_pc, last_si_addr;
+-    if (pc == info->si_addr) { //(pc >= CodeCache::low_bound() && pc < CodeCache::high_bound()) {
+-    //(CodeCache::contains(pc) || thread->thread_state() == _thread_in_Java) {
+-        //if (last_pc != pc) {
+-        //   last_pc = pc;
+-           bool handled = !mprotect((address) ((uintptr_t)pc & -PAGE_SIZE), PAGE_SIZE, PROT_READ | PROT_EXEC);
+-           if (handled) return true;
+-        //}
+-    } else if (info->si_addr >= CodeCache::low_bound() && info->si_addr < CodeCache::high_bound()) {
+-      //(CodeCache::contains(info->si_addr)) { // && last_si_addr != info->si_addr) {
+-      //last_si_addr = (address) info->si_addr;
+-      bool handled = !mprotect((address) ((uintptr_t)info->si_addr & -PAGE_SIZE), PAGE_SIZE, PROT_READ | PROT_WRITE);
+-      if (handled) return true;
+-    }
++      if(!MirrorMappedCodeCache) {
++          // build machine, do not run because of panic on M4
++          if (pc == info->si_addr) {
++              bool handled = !mprotect((address) ((uintptr_t)pc & -PAGE_SIZE), PAGE_SIZE, PROT_READ | PROT_EXEC);
++              if (handled) return true;
++          } else if (info->si_addr >= CodeCache::low_bound() && info->si_addr < CodeCache::high_bound()) {
++              //(CodeCache::contains(info->si_addr)) { // && last_si_addr != info->si_addr) {
++              //last_si_addr = (address) info->si_addr;
++              bool handled = !mprotect((address) ((uintptr_t)info->si_addr & -PAGE_SIZE), PAGE_SIZE, PROT_READ | PROT_WRITE);
++              if (handled) return true;
++          }
++      }
+   }
+ 
+ 
+diff --git a/src/hotspot/os_cpu/bsd_aarch64/atomic_bsd_aarch64.hpp b/src/hotspot/os_cpu/bsd_aarch64/atomic_bsd_aarch64.hpp
+index 14c093de8..d19d982a7 100644
+--- a/src/hotspot/os_cpu/bsd_aarch64/atomic_bsd_aarch64.hpp
++++ b/src/hotspot/os_cpu/bsd_aarch64/atomic_bsd_aarch64.hpp
+@@ -73,7 +73,7 @@ inline T Atomic::PlatformCmpxchg<byte_size>::operator()(T volatile* dest,
+   if (order == memory_order_conservative) {
+     T value = compare_value;
+     FULL_MEM_BARRIER;
+-    __atomic_compare_exchange(dest, &value, &exchange_value, /*weak*/false,
++    __atomic_compare_exchange(mirror_w(dest), &value, &exchange_value, /*weak*/false,
+                               __ATOMIC_RELAXED, __ATOMIC_RELAXED);
+     FULL_MEM_BARRIER;
+     return value;
+@@ -102,7 +102,7 @@ inline T Atomic::PlatformCmpxchg<byte_size>::operator()(T volatile* dest,
+     assert(failure_memory_order <= order, "must be");
+ 
+     T value = compare_value;
+-    __atomic_compare_exchange(dest, &value, &exchange_value, /*weak*/false,
++    __atomic_compare_exchange(mirror_w(dest), &value, &exchange_value, /*weak*/false,
+                               order, failure_memory_order);
+     return value;
+   }
+@@ -119,7 +119,7 @@ template<size_t byte_size>
+ struct Atomic::PlatformOrderedStore<byte_size, RELEASE_X>
+ {
+   template <typename T>
+-  void operator()(volatile T* p, T v) const { __atomic_store(const_cast<T*>(p), &v, __ATOMIC_RELEASE); }
++  void operator()(volatile T* p, T v) const { __atomic_store(const_cast<T*>(mirror_w(p)), &v, __ATOMIC_RELEASE); }
+ };
+ 
+ template<size_t byte_size>
+diff --git a/src/hotspot/share/asm/assembler.cpp b/src/hotspot/share/asm/assembler.cpp
+index 4c7715e97..68d91bce0 100644
+--- a/src/hotspot/share/asm/assembler.cpp
++++ b/src/hotspot/share/asm/assembler.cpp
+@@ -57,7 +57,7 @@ void AbstractAssembler::set_code_section(CodeSection* cs) {
+   assert(cs->outer() == code_section()->outer(), "sanity");
+   assert(cs->is_allocated(), "need to pre-allocate this section");
+   cs->clear_mark();  // new assembly into this section kills old mark
+-  _code_section = cs;
++  mirror_w_set(_code_section) = cs;
+ }
+ 
+ // Inform CodeBuffer that incoming code and relocation will be for stubs
+@@ -92,7 +92,7 @@ address AbstractAssembler::start_a_const(int required_space, int required_align)
+     end = cs->end();  // refresh pointer
+   }
+   if (pad > 0) {
+-    while (--pad >= 0) { *end++ = 0; }
++    while (--pad >= 0) { *mirror_w(end++) = 0; }
+     cs->set_end(end);
+   }
+   set_code_section(cs);
+diff --git a/src/hotspot/share/asm/codeBuffer.cpp b/src/hotspot/share/asm/codeBuffer.cpp
+index 8df550f01..da4c25abb 100644
+--- a/src/hotspot/share/asm/codeBuffer.cpp
++++ b/src/hotspot/share/asm/codeBuffer.cpp
+@@ -659,7 +659,7 @@ csize_t CodeBuffer::copy_relocations_to(address buf, csize_t buf_limit, bool onl
+         }
+         if (buf != nullptr) {
+           assert(buf_offset + (csize_t)sizeof(filler) <= buf_limit, "filler in bounds");
+-          *(relocInfo*)(buf+buf_offset) = filler;
++          *(relocInfo*)mirror_w(buf+buf_offset) = filler;
+         }
+         buf_offset += sizeof(filler);
+       }
+@@ -678,10 +678,10 @@ csize_t CodeBuffer::copy_relocations_to(address buf, csize_t buf_limit, bool onl
+       if (buf_offset % HeapWordSize == 0) {
+         // Use wordwise copies if possible:
+         Copy::disjoint_words((HeapWord*)lstart,
+-                             (HeapWord*)(buf+buf_offset),
++                             (HeapWord*)mirror_w(buf+buf_offset),
+                              (lsize + HeapWordSize-1) / HeapWordSize);
+       } else {
+-        Copy::conjoint_jbytes(lstart, buf+buf_offset, lsize);
++        Copy::conjoint_jbytes(lstart, mirror_w(buf+buf_offset), lsize);
+       }
+     }
+     buf_offset += lsize;
+@@ -692,7 +692,7 @@ csize_t CodeBuffer::copy_relocations_to(address buf, csize_t buf_limit, bool onl
+     if (buf != nullptr) {
+       relocInfo padding = relocInfo(relocInfo::none, 0);
+       assert(buf_offset + (csize_t)sizeof(padding) <= buf_limit, "padding in bounds");
+-      *(relocInfo*)(buf+buf_offset) = padding;
++      *(relocInfo*)mirror_w(buf+buf_offset) = padding;
+     }
+     buf_offset += sizeof(relocInfo);
+   }
+@@ -766,13 +766,13 @@ void CodeBuffer::relocate_code_to(CodeBuffer* dest) const {
+     // Copy the code as aligned machine words.
+     // This may also include an uninitialized partial word at the end.
+     Copy::disjoint_words((HeapWord*)cs->start(),
+-                         (HeapWord*)dest_cs->start(),
++                         (HeapWord*)mirror_w(dest_cs->start()),
+                          wsize / HeapWordSize);
+ 
+     if (dest->blob() == nullptr) {
+       // Destination is a final resting place, not just another buffer.
+       // Normalize uninitialized bytes in the final padding.
+-      Copy::fill_to_bytes(dest_cs->end(), dest_cs->remaining(),
++      Copy::fill_to_bytes(mirror_w(dest_cs->end()), dest_cs->remaining(),
+                           Assembler::code_fill_byte());
+     }
+     // Keep track of the highest filled address
+@@ -804,7 +804,7 @@ void CodeBuffer::relocate_code_to(CodeBuffer* dest) const {
+   if (dest->blob() == nullptr && dest_filled != nullptr) {
+     // Destination is a final resting place, not just another buffer.
+     // Normalize uninitialized bytes in the final padding.
+-    Copy::fill_to_bytes(dest_filled, dest_end - dest_filled,
++    Copy::fill_to_bytes(mirror_w(dest_filled), dest_end - dest_filled,
+                         Assembler::code_fill_byte());
+ 
+   }
+@@ -934,7 +934,7 @@ void CodeBuffer::expand(CodeSection* which_cs, csize_t amount) {
+   cb.set_blob(nullptr);
+ 
+   // Zap the old code buffer contents, to avoid mistakenly using them.
+-  debug_only(Copy::fill_to_bytes(bxp->_total_start, bxp->_total_size,
++  debug_only(Copy::fill_to_bytes(mirror_w(bxp->_total_start), bxp->_total_size,
+                                  badCodeHeapFreeVal);)
+ 
+   // Make certain that the new sections are all snugly inside the new blob.
+@@ -1191,14 +1191,14 @@ bool AsmRemarks::is_empty() const {
+ void AsmRemarks::share(const AsmRemarks &src) {
+   precond(is_empty());
+   clear();
+-  _remarks = src._remarks->reuse();
++  mirror_w_set(_remarks) = src._remarks->reuse();
+ }
+ 
+ void AsmRemarks::clear() {
+   if (_remarks->clear() == 0) {
+     delete _remarks;
+   }
+-  _remarks = nullptr;
++  mirror_w_set(_remarks) = nullptr;
+ }
+ 
+ uint AsmRemarks::print(uint offset, outputStream* strm) const {
+@@ -1243,14 +1243,14 @@ bool DbgStrings::is_empty() const {
+ void DbgStrings::share(const DbgStrings &src) {
+   precond(is_empty());
+   clear();
+-  _strings = src._strings->reuse();
++  mirror_w_set(_strings) = src._strings->reuse();
+ }
+ 
+ void DbgStrings::clear() {
+   if (_strings->clear() == 0) {
+     delete _strings;
+   }
+-  _strings = nullptr;
++  mirror_w_set(_strings) = nullptr;
+ }
+ 
+ // ----- AsmRemarkCollection ---------------------------------------------------
+diff --git a/src/hotspot/share/asm/codeBuffer.hpp b/src/hotspot/share/asm/codeBuffer.hpp
+index 02a42fc0d..bda6e4f3e 100644
+--- a/src/hotspot/share/asm/codeBuffer.hpp
++++ b/src/hotspot/share/asm/codeBuffer.hpp
+@@ -34,10 +34,11 @@
+ #include "utilities/linkedlist.hpp"
+ #include "utilities/resizeableResourceHash.hpp"
+ #include "utilities/macros.hpp"
++#include "os_bsd.hpp"
+ 
+ template <typename T>
+ static inline void put_native(address p, T x) {
+-    memcpy((void*)p, &x, sizeof x);
++    memcpy(mirror_w(p), &x, sizeof x);
+ }
+ 
+ class PhaseCFG;
+@@ -131,6 +132,7 @@ class CodeSection {
+   }
+ 
+   void initialize(address start, csize_t size = 0) {
++    start = mirror_x(start);
+     assert(_start == nullptr, "only one init step, please");
+     _start         = start;
+     _mark          = nullptr;
+@@ -483,6 +485,7 @@ class CodeBuffer: public StackObj DEBUG_ONLY(COMMA private Scrubber) {
+   }
+ 
+   void initialize(address code_start, csize_t code_size) {
++    code_start = mirror_x(code_start);
+     _total_start = code_start;
+     _total_size  = code_size;
+     // Initialize the main section:
+diff --git a/src/hotspot/share/code/codeBlob.cpp b/src/hotspot/share/code/codeBlob.cpp
+index 40d63419e..73d2afb37 100644
+--- a/src/hotspot/share/code/codeBlob.cpp
++++ b/src/hotspot/share/code/codeBlob.cpp
+@@ -176,7 +176,7 @@ void RuntimeBlob::free(RuntimeBlob* blob) {
+ void CodeBlob::purge(bool free_code_cache_data, bool unregister_nmethod) {
+   if (_oop_maps != nullptr) {
+     delete _oop_maps;
+-    _oop_maps = nullptr;
++    mirror_w_set(_oop_maps) = nullptr;
+   }
+   NOT_PRODUCT(_asm_remarks.clear());
+   NOT_PRODUCT(_dbg_strings.clear());
+@@ -186,9 +186,9 @@ void CodeBlob::set_oop_maps(OopMapSet* p) {
+   // Danger Will Robinson! This method allocates a big
+   // chunk of memory, its your job to free it.
+   if (p != nullptr) {
+-    _oop_maps = ImmutableOopMapSet::build_from(p);
++    mirror_w_set(_oop_maps) = ImmutableOopMapSet::build_from(p);
+   } else {
+-    _oop_maps = nullptr;
++    mirror_w_set(_oop_maps) = nullptr;
+   }
+ }
+ 
+@@ -265,7 +265,7 @@ BufferBlob* BufferBlob::create(const char* name, int buffer_size) {
+   // Track memory usage statistic after releasing CodeCache_lock
+   MemoryService::track_code_cache_memory_usage();
+ 
+-  return blob;
++  return mirror_x(blob);
+ }
+ 
+ 
+@@ -281,16 +281,17 @@ BufferBlob* BufferBlob::create(const char* name, CodeBuffer* cb) {
+   assert(name != nullptr, "must provide a name");
+   {
+     MutexLocker mu(CodeCache_lock, Mutex::_no_safepoint_check_flag);
++    cb = mirror_w(cb);
+     blob = new (size) BufferBlob(name, size, cb);
+   }
+   // Track memory usage statistic after releasing CodeCache_lock
+   MemoryService::track_code_cache_memory_usage();
+ 
+-  return blob;
++  return mirror_x(blob);
+ }
+ 
+ void* BufferBlob::operator new(size_t s, unsigned size) throw() {
+-  return CodeCache::allocate(size, CodeBlobType::NonNMethod);
++  return mirror_w(CodeCache::allocate(size, CodeBlobType::NonNMethod));
+ }
+ 
+ void BufferBlob::free(BufferBlob *blob) {
+@@ -315,12 +316,13 @@ AdapterBlob* AdapterBlob::create(CodeBuffer* cb) {
+   unsigned int size = CodeBlob::allocation_size(cb, sizeof(AdapterBlob));
+   {
+     MutexLocker mu(CodeCache_lock, Mutex::_no_safepoint_check_flag);
++    cb = mirror_w(cb);
+     blob = new (size) AdapterBlob(size, cb);
+   }
+   // Track memory usage statistic after releasing CodeCache_lock
+   MemoryService::track_code_cache_memory_usage();
+ 
+-  return blob;
++  return mirror_x(blob);
+ }
+ 
+ void* VtableBlob::operator new(size_t s, unsigned size) throw() {
+@@ -330,7 +332,7 @@ void* VtableBlob::operator new(size_t s, unsigned size) throw() {
+   // this context as we hold the CompiledICLocker. So we just don't handle code
+   // cache exhaustion here; we leave that for a later allocation that does not
+   // hold the CompiledICLocker.
+-  return CodeCache::allocate(size, CodeBlobType::NonNMethod, false /* handle_alloc_failure */);
++  return mirror_w(CodeCache::allocate(size, CodeBlobType::NonNMethod, false /* handle_alloc_failure */));
+ }
+ 
+ VtableBlob::VtableBlob(const char* name, int size) :
+@@ -366,7 +368,7 @@ VtableBlob* VtableBlob::create(const char* name, int buffer_size) {
+   // Track memory usage statistic after releasing CodeCache_lock
+   MemoryService::track_code_cache_memory_usage();
+ 
+-  return blob;
++  return mirror_x(blob);
+ }
+ 
+ //----------------------------------------------------------------------------------------------------
+@@ -390,7 +392,7 @@ MethodHandlesAdapterBlob* MethodHandlesAdapterBlob::create(int buffer_size) {
+   // Track memory usage statistic after releasing CodeCache_lock
+   MemoryService::track_code_cache_memory_usage();
+ 
+-  return blob;
++  return mirror_x(blob);
+ }
+ 
+ //----------------------------------------------------------------------------------------------------
+@@ -433,14 +435,14 @@ RuntimeStub* RuntimeStub::new_runtime_stub(const char* stub_name,
+ void* RuntimeStub::operator new(size_t s, unsigned size) throw() {
+   void* p = CodeCache::allocate(size, CodeBlobType::NonNMethod);
+   if (!p) fatal("Initial size of CodeCache is too small");
+-  return p;
++  return mirror_w(p);
+ }
+ 
+ // operator new shared by all singletons:
+ void* SingletonBlob::operator new(size_t s, unsigned size) throw() {
+   void* p = CodeCache::allocate(size, CodeBlobType::NonNMethod);
+   if (!p) fatal("Initial size of CodeCache is too small");
+-  return p;
++  return mirror_w(p);
+ }
+ 
+ 
+@@ -491,7 +493,7 @@ DeoptimizationBlob* DeoptimizationBlob::create(
+ 
+   trace_new_stub(blob, "DeoptimizationBlob");
+ 
+-  return blob;
++  return mirror_x(blob);
+ }
+ 
+ 
+@@ -524,7 +526,7 @@ UncommonTrapBlob* UncommonTrapBlob::create(
+ 
+   trace_new_stub(blob, "UncommonTrapBlob");
+ 
+-  return blob;
++  return mirror_x(blob);
+ }
+ 
+ 
+@@ -560,7 +562,7 @@ ExceptionBlob* ExceptionBlob::create(
+ 
+   trace_new_stub(blob, "ExceptionBlob");
+ 
+-  return blob;
++  return mirror_x(blob);
+ }
+ 
+ 
+@@ -595,7 +597,7 @@ SafepointBlob* SafepointBlob::create(
+ 
+   trace_new_stub(blob, "SafepointBlob");
+ 
+-  return blob;
++  return mirror_x(blob);
+ }
+ 
+ 
+@@ -765,7 +767,7 @@ UpcallStub* UpcallStub::create(const char* name, CodeBuffer* cb,
+ 
+   trace_new_stub(blob, "UpcallStub");
+ 
+-  return blob;
++  return mirror_x(blob);
+ }
+ 
+ void UpcallStub::oops_do(OopClosure* f, const frame& frame) {
+diff --git a/src/hotspot/share/code/codeBlob.hpp b/src/hotspot/share/code/codeBlob.hpp
+index e842bd88a..d988d12fa 100644
+--- a/src/hotspot/share/code/codeBlob.hpp
++++ b/src/hotspot/share/code/codeBlob.hpp
+@@ -176,7 +176,7 @@ public:
+   RuntimeStub* as_runtime_stub() const         { assert(is_runtime_stub(), "must be runtime blob"); return (RuntimeStub*) this; }
+ 
+   // Boundaries
+-  address header_begin() const        { return (address) this; }
++  address header_begin() const        { return (address) mirror_x(this); }
+   relocInfo* relocation_begin() const { return (relocInfo*) _relocation_begin; };
+   relocInfo* relocation_end() const   { return (relocInfo*) _relocation_end; }
+   address content_begin() const       { return _content_begin; }
+@@ -199,10 +199,10 @@ public:
+   int code_size() const                          { return pointer_delta_as_int(code_end(), code_begin()); }
+   // Only used from CodeCache::free_unused_tail() after the Interpreter blob was trimmed
+   void adjust_size(size_t used) {
+-    _size = (int)used;
+-    _data_offset = (int)used;
+-    _code_end = (address)this + used;
+-    _data_end = (address)this + used;
++    mirror_w_set(_size) = (int)used;
++    mirror_w_set(_data_offset) = (int)used;
++    mirror_w_set(_code_end) = (address)this + used;
++    mirror_w_set(_data_end) = (address)this + used;
+   }
+ 
+   // Containment
+@@ -225,14 +225,14 @@ public:
+ 
+   // Frame support. Sizes are in word units.
+   int  frame_size() const                        { return _frame_size; }
+-  void set_frame_size(int size)                  { _frame_size = size; }
++  void set_frame_size(int size)                  { mirror_w_set(_frame_size) = size; }
+ 
+   // Returns true, if the next frame is responsible for GC'ing oops passed as arguments
+   bool caller_must_gc_arguments(JavaThread* thread) const { return _caller_must_gc_arguments; }
+ 
+   // Naming
+   const char* name() const                       { return _name; }
+-  void set_name(const char* name)                { _name = name; }
++  void set_name(const char* name)                { mirror_w_set(_name) = name; }
+ 
+   // Debugging
+   virtual void verify() = 0;
+@@ -284,17 +284,17 @@ public:
+     _content_offset(0),
+     _code_offset(0),
+     _data_offset(0),
+-    _code_begin(code_begin),
+-    _code_end(code_end),
+-    _content_begin(content_begin),
+-    _content_end(content_end),
+-    _data_end(data_end),
+-    _relocation_begin(relocation_begin),
+-    _relocation_end(relocation_end)
++    _code_begin(mirror_x(code_begin)),
++    _code_end(mirror_x(code_end)),
++    _content_begin(mirror_x(content_begin)),
++    _content_end(mirror_x(content_end)),
++    _data_end(mirror_x(data_end)),
++    _relocation_begin(mirror_x(relocation_begin)),
++    _relocation_end(mirror_x(relocation_end))
+   {
+   }
+ 
+-  CodeBlobLayout(const address start, int size, int header_size, int relocation_size, int data_offset) :
++  CodeBlobLayout(address start, int size, int header_size, int relocation_size, int data_offset) :
+     _size(size),
+     _header_size(header_size),
+     _relocation_size(relocation_size),
+@@ -302,6 +302,7 @@ public:
+     _code_offset(_content_offset),
+     _data_offset(data_offset)
+   {
++    start = mirror_x(start);
+     assert(is_aligned(_relocation_size, oopSize), "unaligned size");
+ 
+     _code_begin = (address) start + _code_offset;
+@@ -315,7 +316,7 @@ public:
+     _relocation_end = _relocation_begin + _relocation_size;
+   }
+ 
+-  CodeBlobLayout(const address start, int size, int header_size, const CodeBuffer* cb) :
++  CodeBlobLayout(address start, int size, int header_size, const CodeBuffer* cb) :
+     _size(size),
+     _header_size(header_size),
+     _relocation_size(align_up(cb->total_relocation_size(), oopSize)),
+@@ -323,6 +324,7 @@ public:
+     _code_offset(_content_offset + cb->total_offset_of(cb->insts())),
+     _data_offset(_content_offset + align_up(cb->total_content_size(), oopSize))
+   {
++    start = mirror_x(start);
+     assert(is_aligned(_relocation_size, oopSize), "unaligned size");
+ 
+     _code_begin = (address) start + _code_offset;
+@@ -610,7 +612,7 @@ class DeoptimizationBlob: public SingletonBlob {
+   // model exception paths in a way that keeps these registers free so
+   // there may be live values in those registers during deopt.
+   void set_unpack_with_exception_in_tls_offset(int offset) {
+-    _unpack_with_exception_in_tls = offset;
++    mirror_w_set(_unpack_with_exception_in_tls) = offset;
+     assert(code_contains(code_begin() + _unpack_with_exception_in_tls), "must be PC inside codeblob");
+   }
+   address unpack_with_exception_in_tls() const   { return code_begin() + _unpack_with_exception_in_tls; }
+@@ -618,13 +620,13 @@ class DeoptimizationBlob: public SingletonBlob {
+ #if INCLUDE_JVMCI
+   // Offsets when JVMCI calls uncommon_trap.
+   void set_uncommon_trap_offset(int offset) {
+-    _uncommon_trap_offset = offset;
++    mirror_w_set(_uncommon_trap_offset) = offset;
+     assert(contains(code_begin() + _uncommon_trap_offset), "must be PC inside codeblob");
+   }
+   address uncommon_trap() const                  { return code_begin() + _uncommon_trap_offset; }
+ 
+   void set_implicit_exception_uncommon_trap_offset(int offset) {
+-    _implicit_exception_uncommon_trap_offset = offset;
++    mirror_w_set(_implicit_exception_uncommon_trap_offset) = offset;
+     assert(contains(code_begin() + _implicit_exception_uncommon_trap_offset), "must be PC inside codeblob");
+   }
+   address implicit_exception_uncommon_trap() const { return code_begin() + _implicit_exception_uncommon_trap_offset; }
+diff --git a/src/hotspot/share/code/codeCache.cpp b/src/hotspot/share/code/codeCache.cpp
+index cf760d873..78a04a973 100644
+--- a/src/hotspot/share/code/codeCache.cpp
++++ b/src/hotspot/share/code/codeCache.cpp
+@@ -605,7 +605,7 @@ void CodeCache::free(CodeBlob* cb) {
+     heap->set_adapter_count(heap->adapter_count() - 1);
+   }
+ 
+-  cb->~CodeBlob();
++  mirror_w(cb)->~CodeBlob();
+   // Get heap for given CodeBlob and deallocate
+   heap->deallocate(cb);
+ 
+diff --git a/src/hotspot/share/code/compiledMethod.hpp b/src/hotspot/share/code/compiledMethod.hpp
+index ca441d9ae..5923418bd 100644
+--- a/src/hotspot/share/code/compiledMethod.hpp
++++ b/src/hotspot/share/code/compiledMethod.hpp
+@@ -192,19 +192,19 @@ public:
+   template<typename T>
+   T* gc_data() const                              { return reinterpret_cast<T*>(_gc_data); }
+   template<typename T>
+-  void set_gc_data(T* gc_data)                    { _gc_data = reinterpret_cast<void*>(gc_data); }
++  void set_gc_data(T* gc_data)                    { mirror_w_set(_gc_data) = reinterpret_cast<void*>(gc_data); }
+ 
+   bool  has_unsafe_access() const                 { return _has_unsafe_access; }
+-  void  set_has_unsafe_access(bool z)             { _has_unsafe_access = z; }
++  void  set_has_unsafe_access(bool z)             { mirror_w(this)->_has_unsafe_access = z; }
+ 
+   bool  has_monitors() const                      { return _has_monitors; }
+-  void  set_has_monitors(bool z)                  { _has_monitors = z; }
++  void  set_has_monitors(bool z)                  { mirror_w(this)->_has_monitors = z; }
+ 
+   bool  has_method_handle_invokes() const         { return _has_method_handle_invokes; }
+-  void  set_has_method_handle_invokes(bool z)     { _has_method_handle_invokes = z; }
++  void  set_has_method_handle_invokes(bool z)     { mirror_w(this)->_has_method_handle_invokes = z; }
+ 
+   bool  has_wide_vectors() const                  { return _has_wide_vectors; }
+-  void  set_has_wide_vectors(bool z)              { _has_wide_vectors = z; }
++  void  set_has_wide_vectors(bool z)              { mirror_w(this)->_has_wide_vectors = z; }
+ 
+   enum { not_installed = -1, // in construction, only the owner doing the construction is
+                              // allowed to advance state
+@@ -313,7 +313,7 @@ protected:
+   // Note: _exception_cache may be read and cleaned concurrently.
+   ExceptionCache* exception_cache() const         { return _exception_cache; }
+   ExceptionCache* exception_cache_acquire() const;
+-  void set_exception_cache(ExceptionCache *ec)    { _exception_cache = ec; }
++  void set_exception_cache(ExceptionCache *ec)    { mirror_w_set(_exception_cache) = ec; }
+ 
+ public:
+   address handler_for_exception_and_pc(Handle exception, address pc);
+@@ -337,7 +337,7 @@ public:
+ 
+   // Accessor/mutator for the original pc of a frame before a frame was deopted.
+   address get_original_pc(const frame* fr) { return *orig_pc_addr(fr); }
+-  void    set_original_pc(const frame* fr, address pc) { *orig_pc_addr(fr) = pc; }
++  void    set_original_pc(const frame* fr, address pc) { *mirror_w(orig_pc_addr(fr)) = pc; }
+ 
+   virtual int orig_pc_offset() = 0;
+ 
+diff --git a/src/hotspot/share/code/dependencies.cpp b/src/hotspot/share/code/dependencies.cpp
+index 05646c715..2b0bde376 100644
+--- a/src/hotspot/share/code/dependencies.cpp
++++ b/src/hotspot/share/code/dependencies.cpp
+@@ -388,7 +388,7 @@ void Dependencies::copy_to(nmethod* nm) {
+   address end = nm->dependencies_end();
+   guarantee(end - beg >= (ptrdiff_t) size_in_bytes(), "bad sizing");
+   Copy::disjoint_words((HeapWord*) content_bytes(),
+-                       (HeapWord*) beg,
++                       (HeapWord*) mirror_w(beg),
+                        size_in_bytes() / sizeof(HeapWord));
+   assert(size_in_bytes() % sizeof(HeapWord) == 0, "copy by words");
+ }
+diff --git a/src/hotspot/share/code/exceptionHandlerTable.cpp b/src/hotspot/share/code/exceptionHandlerTable.cpp
+index 8bcf5a439..7c7608b23 100644
+--- a/src/hotspot/share/code/exceptionHandlerTable.cpp
++++ b/src/hotspot/share/code/exceptionHandlerTable.cpp
+@@ -104,7 +104,7 @@ void ExceptionHandlerTable::copy_to(CompiledMethod* cm) {
+ }
+ 
+ void ExceptionHandlerTable::copy_bytes_to(address addr) {
+-  memmove(addr, _table, size_in_bytes());
++  memmove(mirror_w(addr), _table, size_in_bytes());
+ }
+ 
+ HandlerTableEntry* ExceptionHandlerTable::entry_for(int catch_pco, int handler_bci, int scope_depth) const {
+@@ -237,7 +237,7 @@ void ImplicitExceptionTable::copy_to( nmethod* nm ) {
+ void ImplicitExceptionTable::copy_bytes_to(address addr, int size) {
+   assert(size_in_bytes() <= size, "size of space allocated in nmethod incorrect");
+   if (len() != 0) {
+-    implicit_null_entry* nmdata = (implicit_null_entry*)addr;
++    implicit_null_entry* nmdata = (implicit_null_entry*)mirror_w(addr);
+     // store the length in the first uint
+     nmdata[0] = _len;
+     nmdata++;
+diff --git a/src/hotspot/share/code/icBuffer.cpp b/src/hotspot/share/code/icBuffer.cpp
+index dbceefb7c..a412ba9fb 100644
+--- a/src/hotspot/share/code/icBuffer.cpp
++++ b/src/hotspot/share/code/icBuffer.cpp
+@@ -107,7 +107,7 @@ void ICStub::set_stub(CompiledIC *ic, void* cached_val, address dest_addr) {
+   // We cannot store a pointer to the 'ic' object, since it is resource allocated. Instead we
+   // store the location of the inline cache. Then we have enough information recreate the CompiledIC
+   // object when we need to remove the stub.
+-  _ic_site = ic->instruction_address();
++  mirror_w_set(_ic_site) = ic->instruction_address();
+ 
+   // Assemble new stub
+   InlineCacheBuffer::assemble_ic_buffer_code(code_begin(), cached_val, dest_addr);
+@@ -120,7 +120,7 @@ void ICStub::clear() {
+   if (CompiledIC::is_icholder_entry(destination())) {
+     InlineCacheBuffer::queue_for_release((CompiledICHolder*)cached_value());
+   }
+-  _ic_site = nullptr;
++  mirror_w_set(_ic_site) = nullptr;
+ }
+ 
+ 
+diff --git a/src/hotspot/share/code/icBuffer.hpp b/src/hotspot/share/code/icBuffer.hpp
+index c2da3abdc..acf7cc6b3 100644
+--- a/src/hotspot/share/code/icBuffer.hpp
++++ b/src/hotspot/share/code/icBuffer.hpp
+@@ -56,7 +56,7 @@ class ICStub: public Stub {
+  protected:
+   friend class ICStubInterface;
+   // This will be called only by ICStubInterface
+-  void    initialize(int size)                   { _size = size; _ic_site = nullptr; }
++  void    initialize(int size)                   { mirror_w_set(_size) = size; mirror_w_set(_ic_site) = nullptr; }
+   void    finalize(); // called when a method is removed
+ 
+   // General info
+diff --git a/src/hotspot/share/code/nmethod.cpp b/src/hotspot/share/code/nmethod.cpp
+index 3808ee269..272d378a2 100644
+--- a/src/hotspot/share/code/nmethod.cpp
++++ b/src/hotspot/share/code/nmethod.cpp
+@@ -355,7 +355,7 @@ void PcDescCache::reset_to(PcDesc* initial_pc_desc) {
+   // reset the cache by filling it with benign (non-null) values
+   assert(initial_pc_desc->pc_offset() < 0, "must be sentinel");
+   for (int i = 0; i < cache_size; i++)
+-    _pc_descs[i] = initial_pc_desc;
++    _pc_descs[i] = mirror_x(initial_pc_desc);
+ }
+ 
+ PcDesc* PcDescCache::find_pc_desc(int pc_offset, bool approximate) {
+@@ -400,7 +400,7 @@ void PcDescCache::add_pc_desc(PcDesc* pc_desc) {
+   // Update the LRU cache by shifting pc_desc forward.
+   for (int i = 0; i < cache_size; i++)  {
+     PcDesc* next = _pc_descs[i];
+-    _pc_descs[i] = pc_desc;
++    mirror_w_set(_pc_descs[i]) = mirror_x(pc_desc);
+     pc_desc = next;
+   }
+ }
+@@ -533,7 +533,7 @@ nmethod* nmethod::new_native_nmethod(const methodHandle& method,
+ 
+     nm->log_new_nmethod();
+   }
+-  return nm;
++  return mirror_x(nm);
+ }
+ 
+ nmethod* nmethod::new_nmethod(const methodHandle& method,
+@@ -591,6 +591,7 @@ nmethod* nmethod::new_nmethod(const methodHandle& method,
+             jvmci_data
+ #endif
+             );
++    nm = mirror_x(nm);
+ 
+     if (nm != nullptr) {
+       // To make dependency checking during class loading fast, record
+@@ -689,19 +690,19 @@ nmethod::nmethod(
+ 
+     _exception_offset        = code_offset()         + offsets->value(CodeOffsets::Exceptions);
+ 
+-    _scopes_data_begin = (address) this + scopes_data_offset;
+-    _deopt_handler_begin = (address) this + deoptimize_offset;
+-    _deopt_mh_handler_begin = (address) this + deoptimize_mh_offset;
++    _scopes_data_begin = (address) mirror_x(this) + scopes_data_offset;
++    _deopt_handler_begin = (address) mirror_x(this) + deoptimize_offset;
++    _deopt_mh_handler_begin = (address) mirror_x(this) + deoptimize_mh_offset;
+ 
+-    code_buffer->copy_code_and_locs_to(this);
+-    code_buffer->copy_values_to(this);
++    code_buffer->copy_code_and_locs_to(mirror_x(this));
++    code_buffer->copy_values_to(mirror_x(this));
+ 
+     clear_unloading_state();
+ 
+-    Universe::heap()->register_nmethod(this);
+-    debug_only(Universe::heap()->verify_nmethod(this));
++    Universe::heap()->register_nmethod(mirror_x(this));
++    debug_only(Universe::heap()->verify_nmethod(mirror_x(this)));
+ 
+-    CodeCache::commit(this);
++    CodeCache::commit(mirror_x(this));
+ 
+     finalize_relocations();
+   }
+@@ -715,7 +716,7 @@ nmethod::nmethod(
+       xtty->begin_head("print_native_nmethod");
+       xtty->method(_method);
+       xtty->stamp();
+-      xtty->end_head(" address='" INTPTR_FORMAT "'", (intptr_t) this);
++      xtty->end_head(" address='" INTPTR_FORMAT "'", (intptr_t) mirror_x(this));
+     }
+     // Print the header part, then print the requested information.
+     // This is both handled in decode2(), called via print_code() -> decode()
+@@ -750,15 +751,15 @@ nmethod::nmethod(
+ }
+ 
+ void* nmethod::operator new(size_t size, int nmethod_size, int comp_level) throw () {
+-  return CodeCache::allocate(nmethod_size, CodeCache::get_code_blob_type(comp_level));
++    return mirror_w(CodeCache::allocate(nmethod_size, CodeCache::get_code_blob_type(comp_level)));
+ }
+ 
+ void* nmethod::operator new(size_t size, int nmethod_size, bool allow_NonNMethod_space) throw () {
+   // Try MethodNonProfiled and MethodProfiled.
+   void* return_value = CodeCache::allocate(nmethod_size, CodeBlobType::MethodNonProfiled);
+-  if (return_value != nullptr || !allow_NonNMethod_space) return return_value;
++  if (return_value != nullptr || !allow_NonNMethod_space) return mirror_w(return_value);
+   // Try NonNMethod or give up.
+-  return CodeCache::allocate(nmethod_size, CodeBlobType::NonNMethod);
++  return mirror_w(CodeCache::allocate(nmethod_size, CodeBlobType::NonNMethod));
+ }
+ 
+ nmethod::nmethod(
+@@ -795,8 +796,8 @@ nmethod::nmethod(
+     debug_only(NoSafepointVerifier nsv;)
+     assert_locked_or_safepoint(CodeCache_lock);
+ 
+-    _deopt_handler_begin = (address) this;
+-    _deopt_mh_handler_begin = (address) this;
++    _deopt_handler_begin = (address) mirror_x(this);
++    _deopt_mh_handler_begin = (address) mirror_x(this);
+ 
+     init_defaults();
+     _entry_bci               = entry_bci;
+@@ -821,12 +822,12 @@ nmethod::nmethod(
+         _exception_offset = -1;
+       }
+       if (offsets->value(CodeOffsets::Deopt) != -1) {
+-        _deopt_handler_begin       = (address) this + code_offset()          + offsets->value(CodeOffsets::Deopt);
++        _deopt_handler_begin       = (address) mirror_x(this) + code_offset()          + offsets->value(CodeOffsets::Deopt);
+       } else {
+         _deopt_handler_begin = nullptr;
+       }
+       if (offsets->value(CodeOffsets::DeoptMH) != -1) {
+-        _deopt_mh_handler_begin  = (address) this + code_offset()          + offsets->value(CodeOffsets::DeoptMH);
++        _deopt_mh_handler_begin  = (address) mirror_x(this) + code_offset()          + offsets->value(CodeOffsets::DeoptMH);
+       } else {
+         _deopt_mh_handler_begin = nullptr;
+       }
+@@ -838,9 +839,9 @@ nmethod::nmethod(
+       assert(offsets->value(CodeOffsets::Deopt     ) != -1, "must be set");
+ 
+       _exception_offset       = _stub_offset          + offsets->value(CodeOffsets::Exceptions);
+-      _deopt_handler_begin    = (address) this + _stub_offset          + offsets->value(CodeOffsets::Deopt);
++      _deopt_handler_begin    = (address) mirror_x(this) + _stub_offset          + offsets->value(CodeOffsets::Deopt);
+       if (offsets->value(CodeOffsets::DeoptMH) != -1) {
+-        _deopt_mh_handler_begin  = (address) this + _stub_offset          + offsets->value(CodeOffsets::DeoptMH);
++        _deopt_mh_handler_begin  = (address) mirror_x(this) + _stub_offset          + offsets->value(CodeOffsets::DeoptMH);
+       } else {
+         _deopt_mh_handler_begin  = nullptr;
+       }
+@@ -871,15 +872,15 @@ nmethod::nmethod(
+     _verified_entry_point    = code_begin()          + offsets->value(CodeOffsets::Verified_Entry);
+     _osr_entry_point         = code_begin()          + offsets->value(CodeOffsets::OSR_Entry);
+     _exception_cache         = nullptr;
+-    _scopes_data_begin       = (address) this + scopes_data_offset;
++    _scopes_data_begin       = (address) mirror_x(this) + scopes_data_offset;
+ 
+     _pc_desc_container.reset_to(scopes_pcs_begin());
+ 
+-    code_buffer->copy_code_and_locs_to(this);
++    code_buffer->copy_code_and_locs_to(mirror_x(this));
+     // Copy contents of ScopeDescRecorder to nmethod
+-    code_buffer->copy_values_to(this);
+-    debug_info->copy_to(this);
+-    dependencies->copy_to(this);
++    code_buffer->copy_values_to(mirror_x(this));
++    debug_info->copy_to(mirror_x(this));
++    dependencies->copy_to(mirror_x(this));
+     clear_unloading_state();
+ 
+ #if INCLUDE_JVMCI
+@@ -889,21 +890,21 @@ nmethod::nmethod(
+     }
+ #endif
+ 
+-    Universe::heap()->register_nmethod(this);
+-    debug_only(Universe::heap()->verify_nmethod(this));
++    Universe::heap()->register_nmethod(mirror_x(this));
++    debug_only(Universe::heap()->verify_nmethod(mirror_x(this)));
+ 
+-    CodeCache::commit(this);
++    CodeCache::commit(mirror_x(this));
+ 
+     finalize_relocations();
+ 
+     // Copy contents of ExceptionHandlerTable to nmethod
+-    handler_table->copy_to(this);
+-    nul_chk_table->copy_to(this);
++    handler_table->copy_to(mirror_x(this));
++    nul_chk_table->copy_to(mirror_x(this));
+ 
+ #if INCLUDE_JVMCI
+     // Copy speculations to nmethod
+     if (speculations_size() != 0) {
+-      memcpy(speculations_begin(), speculations, speculations_len);
++      memcpy(mirror_w(speculations_begin()), speculations, speculations_len);
+     }
+ #endif
+ 
+@@ -1078,9 +1079,9 @@ inline void nmethod::initialize_immediate_oop(oop* dest, jobject handle) {
+   if (handle == nullptr ||
+       // As a special case, IC oops are initialized to 1 or -1.
+       handle == (jobject) Universe::non_oop_word()) {
+-    *(void**)dest = handle;
++    *(void**)mirror_w(dest) = handle;
+   } else {
+-    *dest = JNIHandles::resolve_non_null(handle);
++    *mirror_w(dest) = JNIHandles::resolve_non_null(handle);
+   }
+ }
+ 
+@@ -1107,7 +1108,7 @@ void nmethod::copy_values(GrowableArray<Metadata*>* array) {
+   assert((address)(metadata_begin() + length) <= (address)metadata_end(), "big enough");
+   Metadata** dest = metadata_begin();
+   for (int index = 0 ; index < length; index++) {
+-    dest[index] = array->at(index);
++    mirror_w_set(dest[index]) = array->at(index);
+   }
+ }
+ 
+@@ -1837,7 +1838,7 @@ bool nmethod::oops_do_try_claim_weak_request() {
+ }
+ 
+ void nmethod::oops_do_set_strong_done(nmethod* old_head) {
+-  _oops_do_mark_link = mark_link(old_head, claim_strong_done_tag);
++  mirror_w_set(_oops_do_mark_link) = mark_link(old_head, claim_strong_done_tag);
+ }
+ 
+ nmethod::oops_do_mark_link* nmethod::oops_do_try_claim_strong_done() {
+@@ -1981,7 +1982,7 @@ void nmethod::oops_do_marking_epilogue() {
+     do {
+       cur = next;
+       next = extract_nmethod(cur->_oops_do_mark_link);
+-      cur->_oops_do_mark_link = nullptr;
++      mirror_w(cur)->_oops_do_mark_link = nullptr;
+       DEBUG_ONLY(cur->verify_oop_relocations());
+ 
+       LogTarget(Trace, gc, nmethod) lt;
+@@ -2028,7 +2029,7 @@ void nmethod::copy_scopes_pcs(PcDesc* pcs, int count) {
+ 
+   int size = count * sizeof(PcDesc);
+   assert(scopes_pcs_size() >= size, "oob");
+-  memcpy(scopes_pcs_begin(), pcs, size);
++  memcpy(mirror_w(scopes_pcs_begin()), pcs, size);
+ 
+   // Adjust the final sentinel downward.
+   PcDesc* last_pc = &scopes_pcs_begin()[count-1];
+@@ -2047,7 +2048,7 @@ void nmethod::copy_scopes_pcs(PcDesc* pcs, int count) {
+ 
+ void nmethod::copy_scopes_data(u_char* buffer, int size) {
+   assert(scopes_data_size() >= size, "oob");
+-  memcpy(scopes_data_begin(), buffer, size);
++  memcpy(mirror_w(scopes_data_begin()), buffer, size);
+ }
+ 
+ #ifdef ASSERT
+diff --git a/src/hotspot/share/code/nmethod.hpp b/src/hotspot/share/code/nmethod.hpp
+index 03b8210c3..274d2563e 100644
+--- a/src/hotspot/share/code/nmethod.hpp
++++ b/src/hotspot/share/code/nmethod.hpp
+@@ -444,12 +444,12 @@ class nmethod : public CompiledMethod {
+   virtual void do_unloading(bool unloading_occurred);
+ 
+   bool is_unlinked() const                        { return _is_unlinked; }
+-  void set_is_unlinked()                          { assert(!_is_unlinked, "already unlinked"); _is_unlinked = true; }
++  void set_is_unlinked()                          { assert(!_is_unlinked, "already unlinked"); mirror_w_set(_is_unlinked) = true; }
+ 
+ #if INCLUDE_RTM_OPT
+   // rtm state accessing and manipulating
+   RTMState  rtm_state() const                     { return _rtm_state; }
+-  void set_rtm_state(RTMState state)              { _rtm_state = state; }
++  void set_rtm_state(RTMState state)              { mirror_w_set(_rtm_state) = state; }
+ #endif
+ 
+   bool make_in_use() {
+@@ -472,7 +472,7 @@ class nmethod : public CompiledMethod {
+   bool has_flushed_dependencies()                 { return _has_flushed_dependencies; }
+   void set_has_flushed_dependencies()             {
+     assert(!has_flushed_dependencies(), "should only happen once");
+-    _has_flushed_dependencies = 1;
++    mirror_w_set(_has_flushed_dependencies) = 1;
+   }
+ 
+   int   comp_level() const                        { return _comp_level; }
+@@ -515,7 +515,7 @@ public:
+   address  osr_entry() const                      { assert(is_osr_method(), "wrong kind of nmethod"); return _osr_entry_point; }
+   void  invalidate_osr_method();
+   nmethod* osr_link() const                       { return _osr_link; }
+-  void     set_osr_link(nmethod *n)               { _osr_link = n; }
++  void     set_osr_link(nmethod *n)               { mirror_w_set(_osr_link) = n; }
+ 
+   int num_stack_arg_slots(bool rounded = true) const {
+     return rounded ? align_up(_num_stack_arg_slots, 2) : _num_stack_arg_slots;
+@@ -535,7 +535,7 @@ public:
+   bool is_maybe_on_stack();
+ 
+   // Evolution support. We make old (discarded) compiled methods point to new Method*s.
+-  void set_method(Method* method) { _method = method; }
++  void set_method(Method* method) { mirror_w_set(_method) = method; }
+ 
+ #if INCLUDE_JVMCI
+   // Gets the JVMCI name of this nmethod.
+@@ -592,7 +592,7 @@ public:
+ 
+   // used by jvmti to track if the load events has been reported
+   bool  load_reported() const                     { return _load_reported; }
+-  void  set_load_reported()                       { _load_reported = true; }
++  void  set_load_reported()                       { mirror_w_set(_load_reported) = true; }
+ 
+  public:
+   // copying of debugging information
+diff --git a/src/hotspot/share/code/pcDesc.hpp b/src/hotspot/share/code/pcDesc.hpp
+index 4ec1db4ff..d894a3f71 100644
+--- a/src/hotspot/share/code/pcDesc.hpp
++++ b/src/hotspot/share/code/pcDesc.hpp
+@@ -50,7 +50,7 @@ class PcDesc {
+   int _flags;
+ 
+   void set_flag(int mask, bool z) {
+-    _flags = z ? (_flags | mask) : (_flags & ~mask);
++    mirror_w_set(_flags) = z ? (_flags | mask) : (_flags & ~mask);
+   }
+ 
+  public:
+@@ -58,9 +58,9 @@ class PcDesc {
+   int scope_decode_offset() const { return _scope_decode_offset; }
+   int obj_decode_offset() const   { return _obj_decode_offset; }
+ 
+-  void set_pc_offset(int x)           { _pc_offset           = x; }
+-  void set_scope_decode_offset(int x) { _scope_decode_offset = x; }
+-  void set_obj_decode_offset(int x)   { _obj_decode_offset   = x; }
++  void set_pc_offset(int x)           { mirror_w_set(_pc_offset)           = x; }
++  void set_scope_decode_offset(int x) { mirror_w_set(_scope_decode_offset) = x; }
++  void set_obj_decode_offset(int x)   { mirror_w_set(_obj_decode_offset)   = x; }
+ 
+   // Constructor (only used for static in nmethod.cpp)
+   // Also used by ScopeDesc::sender()]
+diff --git a/src/hotspot/share/code/stubs.cpp b/src/hotspot/share/code/stubs.cpp
+index 6037b683b..26f73b869 100644
+--- a/src/hotspot/share/code/stubs.cpp
++++ b/src/hotspot/share/code/stubs.cpp
+@@ -74,7 +74,7 @@ StubQueue::StubQueue(StubInterface* stub_interface, int buffer_size,
+   _stub_interface  = stub_interface;
+   _buffer_size     = blob->content_size();
+   _buffer_limit    = blob->content_size();
+-  _stub_buffer     = blob->content_begin();
++  _stub_buffer     = mirror_x(blob->content_begin());
+   _queue_begin     = 0;
+   _queue_end       = 0;
+   _number_of_stubs = 0;
+diff --git a/src/hotspot/share/code/vtableStubs.cpp b/src/hotspot/share/code/vtableStubs.cpp
+index eed3dc8e7..3cefc54d9 100644
+--- a/src/hotspot/share/code/vtableStubs.cpp
++++ b/src/hotspot/share/code/vtableStubs.cpp
+@@ -77,7 +77,7 @@ void* VtableStub::operator new(size_t size, int code_size) throw() {
+   void* res = _chunk;
+   _chunk += real_size;
+   align_chunk();
+- return res;
++ return mirror_w(res);
+ }
+ 
+ 
+diff --git a/src/hotspot/share/code/vtableStubs.hpp b/src/hotspot/share/code/vtableStubs.hpp
+index 5a5f4aa32..afbc3d281 100644
+--- a/src/hotspot/share/code/vtableStubs.hpp
++++ b/src/hotspot/share/code/vtableStubs.hpp
+@@ -138,7 +138,7 @@ class VtableStub {
+   VtableStub* next() const                       { return _next; }
+   int index() const                              { return _index; }
+   static VMReg receiver_location()               { return _receiver_location; }
+-  void set_next(VtableStub* n)                   { _next = n; }
++  void set_next(VtableStub* n)                   { mirror_w_set(_next) = n; }
+ 
+  public:
+   address code_begin() const                     { return (address)(this + 1); }
+@@ -153,8 +153,8 @@ class VtableStub {
+ 
+  private:
+   void set_exception_points(address npe_addr, address ame_addr) {
+-    _npe_offset = checked_cast<short>(npe_addr - code_begin());
+-    _ame_offset = checked_cast<short>(ame_addr - code_begin());
++    mirror_w_set(_npe_offset) = checked_cast<short>(npe_addr - code_begin());
++    mirror_w_set(_ame_offset) = checked_cast<short>(ame_addr - code_begin());
+     assert(is_abstract_method_error(ame_addr),   "offset must be correct");
+     assert(is_null_pointer_exception(npe_addr),  "offset must be correct");
+     assert(!is_abstract_method_error(npe_addr),  "offset must be correct");
+diff --git a/src/hotspot/share/interpreter/interpreter.cpp b/src/hotspot/share/interpreter/interpreter.cpp
+index 3c4ff4c17..4bd3706fd 100644
+--- a/src/hotspot/share/interpreter/interpreter.cpp
++++ b/src/hotspot/share/interpreter/interpreter.cpp
+@@ -51,8 +51,8 @@
+ // Implementation of InterpreterCodelet
+ 
+ void InterpreterCodelet::initialize(const char* description, Bytecodes::Code bytecode) {
+-  _description = description;
+-  _bytecode    = bytecode;
++  mirror_w_set(_description) = description;
++  mirror_w_set(_bytecode)    = bytecode;
+ #ifndef PRODUCT
+   AsmRemarks* arp = new(&_asm_remarks) AsmRemarks();
+   DbgStrings* dsp = new(&_dbg_strings) DbgStrings();
+@@ -93,7 +93,7 @@ CodeletMark::CodeletMark(InterpreterMacroAssembler*& masm,
+   assert(_clet != nullptr, "we checked not enough space already");
+ 
+   // Initialize Codelet attributes.
+-  _clet->initialize(description, bytecode);
++  mirror_w(_clet)->initialize(description, bytecode);
+   // Create assembler for code generation.
+   masm = new InterpreterMacroAssembler(&_cb);
+   _masm = &masm;
+diff --git a/src/hotspot/share/interpreter/interpreter.hpp b/src/hotspot/share/interpreter/interpreter.hpp
+index 10c5c940a..f354ead9f 100644
+--- a/src/hotspot/share/interpreter/interpreter.hpp
++++ b/src/hotspot/share/interpreter/interpreter.hpp
+@@ -54,7 +54,7 @@ class InterpreterCodelet: public Stub {
+ 
+  public:
+   // Initialization/finalization
+-  void    initialize(int size)                   { _size = size; }
++  void    initialize(int size)                   { mirror_w_set(_size) = size; }
+   void    finalize()                             { ShouldNotCallThis(); }
+ 
+   // General info/converters
+diff --git a/src/hotspot/share/interpreter/interpreterRuntime.cpp b/src/hotspot/share/interpreter/interpreterRuntime.cpp
+index ddb6ca321..964babe64 100644
+--- a/src/hotspot/share/interpreter/interpreterRuntime.cpp
++++ b/src/hotspot/share/interpreter/interpreterRuntime.cpp
+@@ -1296,7 +1296,7 @@ void SignatureHandlerLibrary::initialize() {
+ 
+   BufferBlob* bb = BufferBlob::create("Signature Handler Temp Buffer",
+                                       SignatureHandlerLibrary::buffer_size);
+-  _buffer = bb->code_begin();
++  _buffer = mirror_x(bb->code_begin());
+ 
+   _fingerprints = new (mtCode) GrowableArray<uint64_t>(32, mtCode);
+   _handlers     = new (mtCode) GrowableArray<address>(32, mtCode);
+@@ -1310,7 +1310,7 @@ address SignatureHandlerLibrary::set_handler(CodeBuffer* buffer) {
+     handler = set_handler_blob();
+   }
+   if (handler != nullptr) {
+-    memcpy(handler, buffer->insts_begin(), insts_size);
++    memcpy(mirror_w(handler), buffer->insts_begin(), insts_size);
+     pd_set_handler(handler);
+     ICache::invalidate_range(handler, insts_size);
+     _handler = handler + insts_size;
+diff --git a/src/hotspot/share/memory/heap.cpp b/src/hotspot/share/memory/heap.cpp
+index c2fa593ea..bffadf2f1 100644
+--- a/src/hotspot/share/memory/heap.cpp
++++ b/src/hotspot/share/memory/heap.cpp
+@@ -167,7 +167,7 @@ void CodeHeap::invalidate(size_t beg, size_t end, size_t hdr_size) {
+   // length is expected to be in segment_size units.
+   // This prevents inadvertent execution of code leftover from previous use.
+   char* p = low_boundary() + segments_to_size(beg) + hdr_size;
+-  memset(p, badCodeHeapNewVal, segments_to_size(end-beg)-hdr_size);
++  memset(mirror_w(p), badCodeHeapNewVal, segments_to_size(end-beg)-hdr_size);
+ #endif
+ }
+ 
+@@ -720,7 +720,7 @@ HeapBlock* CodeHeap::search_freelist(size_t length) {
+     // The rest of the block should already be invalidated.
+     // This is necessary due to a dubious assert in nmethod.cpp(PcDescCache::reset_to()).
+     // Can't use invalidate() here because it works on segment_size units (too coarse).
+-    DEBUG_ONLY(memset((void*)res->allocated_space(), badCodeHeapNewVal, sizeof(FreeBlock) - sizeof(HeapBlock)));
++    DEBUG_ONLY(memset((void*)mirror_w(res->allocated_space()), badCodeHeapNewVal, sizeof(FreeBlock) - sizeof(HeapBlock)));
+   } else {
+     // Truncate the free block and return the truncated part
+     // as new HeapBlock. The remaining free block does not
+diff --git a/src/hotspot/share/memory/heap.hpp b/src/hotspot/share/memory/heap.hpp
+index da02eecae..842ee262f 100644
+--- a/src/hotspot/share/memory/heap.hpp
++++ b/src/hotspot/share/memory/heap.hpp
+@@ -31,6 +31,8 @@
+ #include "runtime/atomic.hpp"
+ #include "utilities/macros.hpp"
+ 
++#include "os_bsd.hpp"
++
+ // Blocks
+ 
+ class HeapBlock {
+@@ -51,17 +53,17 @@ class HeapBlock {
+ 
+  public:
+   // Initialization
+-  void initialize(size_t length)                 { _header._length = length; set_used(); }
++  void initialize(size_t length)                 { mirror_w(&_header)->_length = length; set_used(); }
+   // Merging/splitting
+-  void set_length(size_t length)                 { _header._length = length; }
++  void set_length(size_t length)                 { mirror_w(&_header)->_length = length; }
+ 
+   // Accessors
+   void* allocated_space() const                  { return (void*)(this + 1); }
+   size_t length() const                          { return _header._length; }
+ 
+   // Used/free
+-  void set_used()                                { _header._used = true; }
+-  void set_free()                                { _header._used = false; }
++  void set_used()                                { mirror_w(&_header)->_used = true; }
++  void set_free()                                { mirror_w(&_header)->_used = false; }
+   bool free()                                    { return !_header._used; }
+ };
+ 
+@@ -76,7 +78,7 @@ class FreeBlock: public HeapBlock {
+ 
+   // Accessors
+   FreeBlock* link() const                    { return _link; }
+-  void set_link(FreeBlock* link)             { _link = link; }
++  void set_link(FreeBlock* link)             { mirror_w_set(_link) = link; }
+ };
+ 
+ class CodeHeap : public CHeapObj<mtCode> {
+@@ -170,7 +172,8 @@ class CodeHeap : public CHeapObj<mtCode> {
+   char* high_boundary() const                    { return _memory.high_boundary(); }
+ 
+   // Containment means "contained in committed space".
+-  bool contains(const void* p) const             { return low() <= p && p < high(); }
++  bool contains_internal(const void* p) const             { return low() <= p && p < high(); }
++  bool contains(const void* p) const             { return contains_internal(p) || contains_internal((const void *)os::Bsd::mirrored_swap_wx((address)p)); }
+ 
+   void* find_start(void* p)     const;   // returns the block containing p or null
+   CodeBlob* find_blob(void* start) const;
+@@ -210,9 +213,9 @@ class CodeHeap : public CHeapObj<mtCode> {
+   const char* name() const                       { return _name; }
+   int         blob_count()                       { return _blob_count; }
+   int         nmethod_count()                    { return _nmethod_count; }
+-  void    set_nmethod_count(int count)           {        _nmethod_count = count; }
++  void    set_nmethod_count(int count)           {        mirror_w_set(_nmethod_count) = count; }
+   int         adapter_count()                    { return _adapter_count; }
+-  void    set_adapter_count(int count)           {        _adapter_count = count; }
++  void    set_adapter_count(int count)           {        mirror_w_set(_adapter_count) = count; }
+   int         full_count()                       { return _full_count; }
+   int         report_full()                      { return Atomic::add(&_full_count, 1); }
+ 
+diff --git a/src/hotspot/share/oops/accessBackend.hpp b/src/hotspot/share/oops/accessBackend.hpp
+index c711a241e..5db17ca58 100644
+--- a/src/hotspot/share/oops/accessBackend.hpp
++++ b/src/hotspot/share/oops/accessBackend.hpp
+@@ -33,6 +33,7 @@
+ #include "runtime/globals.hpp"
+ #include "utilities/debug.hpp"
+ #include "utilities/globalDefinitions.hpp"
++#include "os_bsd.hpp"
+ 
+ #include <type_traits>
+ 
+@@ -263,7 +264,7 @@ protected:
+   static inline typename EnableIf<
+     HasDecorator<ds, MO_UNORDERED>::value>::type
+   store_internal(void* addr, T value) {
+-    *reinterpret_cast<T*>(addr) = value;
++    *reinterpret_cast<T*>(mirror_w(addr)) = value;
+   }
+ 
+   template <DecoratorSet ds, typename T>
+diff --git a/src/hotspot/share/runtime/atomic.hpp b/src/hotspot/share/runtime/atomic.hpp
+index ac0ce49d2..3e7cb2e7c 100644
+--- a/src/hotspot/share/runtime/atomic.hpp
++++ b/src/hotspot/share/runtime/atomic.hpp
+@@ -33,6 +33,10 @@
+ #include "utilities/bytes.hpp"
+ #include "utilities/macros.hpp"
+ 
++#ifdef __APPLE__
++#include "os_bsd.hpp"
++#endif
++
+ #include <type_traits>
+ 
+ enum atomic_memory_order {
+@@ -617,7 +621,7 @@ struct Atomic::PlatformStore {
+   void operator()(T volatile* dest,
+                   T new_value) const {
+     STATIC_ASSERT(sizeof(T) <= sizeof(void*)); // wide atomics need specialization
+-    (void)const_cast<T&>(*dest = new_value);
++    (void)const_cast<T&>(*mirror_w(dest) = new_value);
+   }
+ };
+ 
+diff --git a/src/hotspot/share/runtime/deoptimization.cpp b/src/hotspot/share/runtime/deoptimization.cpp
+index 2058da0ff..3f2022ac5 100644
+--- a/src/hotspot/share/runtime/deoptimization.cpp
++++ b/src/hotspot/share/runtime/deoptimization.cpp
+@@ -134,7 +134,7 @@ void DeoptimizationScope::mark(CompiledMethod* cm, bool inc_recompile_counts) {
+   assert(DeoptimizationScope::_committed_deopt_gen < DeoptimizationScope::_active_deopt_gen, "Must be");
+   assert(cm->_deoptimization_generation == 0, "Is already marked");
+ 
+-  cm->_deoptimization_generation = DeoptimizationScope::_active_deopt_gen;
++  mirror_w(cm)->_deoptimization_generation = DeoptimizationScope::_active_deopt_gen;
+   _required_gen                  = DeoptimizationScope::_active_deopt_gen;
+ }
+ 
+diff --git a/src/hotspot/share/runtime/globals.hpp b/src/hotspot/share/runtime/globals.hpp
+index 5d8468a55..dd314b97e 100644
+--- a/src/hotspot/share/runtime/globals.hpp
++++ b/src/hotspot/share/runtime/globals.hpp
+@@ -1541,6 +1541,9 @@ const int ObjectAlignmentInBytes = 8;
+   product(bool, SegmentedCodeCache, false,                                  \
+           "Use a segmented code cache")                                     \
+                                                                             \
++  product(bool, MirrorMappedCodeCache, false,                               \
++          "Use mirror-mapped code cache for iOS 26")                        \
++                                                                            \
+   product_pd(uintx, ReservedCodeCacheSize,                                  \
+           "Reserved code cache size (in bytes) - maximum code cache size")  \
+           constraint(VMPageSizeConstraintFunc, AtParse)                     \
