@@ -93,7 +93,7 @@ git reset --hard
 if [[ "$BUILD_IOS" != "1" ]]; then
   find ../patches/jre_${TARGET_VERSION}/android -name "*.diff" -print0 | xargs -0 -I {} sh -c 'echo "Applying {}" && git apply  --reject --whitespace=fix {} || (echo "git apply failed (Android patch set)" && exit 1)' 
 else
-  find ../patches/jre_${TARGET_VERSION}/ios -name "*.diff" -print0 | sort -z | xargs -0 -I {} sh -c 'echo "Applying {}" && git apply --reject --whitespace=fix {} || (echo "git apply failed (iOs patch set)" && exit 1)' 
+  find ../patches/jre_${TARGET_VERSION}/ios -name "*.diff" -print0 | sort -z | xargs -0 -I {} sh -c 'echo "Applying {}" && git apply --reject --whitespace=fix {} || echo "git apply had rejects (ios_sed_fixes.py will handle)"' 
 
   # JDK 25 has more source changes between 21 and 25 than the base patch
   # handles cleanly. Run the fixup script to patch the remaining hunks.
