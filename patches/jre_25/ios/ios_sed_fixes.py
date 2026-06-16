@@ -574,3 +574,24 @@ if p.exists():
         print('[ios_sed_fixes] fix18: signals_posix.cpp already patched')
 else:
     print('[ios_sed_fixes] fix18: WARN signals_posix.cpp not found')
+
+# Fix 19: icache_bsd_aarch64.hpp - __clear_cache is not available on iOS.
+# Replace with sys_icache_invalidate which is the iOS equivalent.
+p = ROOT / 'src/hotspot/os_cpu/bsd_aarch64/icache_bsd_aarch64.hpp'
+if p.exists():
+    s = p.read_text()
+    if 'sys_icache_invalidate' not in s:
+        original = s
+        s = s.replace(
+            '  static void invalidate_word(address addr) {\n    __clear_cache((char *)addr, (char *)(addr + 4));\n  }\n  static void invalidate_range(address start, int nbytes) {\n    __clear_cache((char *)start, (char *)(start + nbytes));\n  }',
+            '  static void invalidate_word(address addr) {\n    sys_icache_invalidate((char *)addr, 4);\n  }\n  static void invalidate_range(address start, int nbytes) {\n    sys_icache_invalidate((char *)start, nbytes);\n  }'
+        )
+        if s != original:
+            p.write_text(s)
+            print('[ios_sed_fixes] fix19: patched icache_bsd_aarch64.hpp __clear_cache')
+        else:
+            print('[ios_sed_fixes] fix19: WARN __clear_cache pattern not found')
+    else:
+        print('[ios_sed_fixes] fix19: icache_bsd_aarch64.hpp already patched')
+else:
+    print('[ios_sed_fixes] fix19: WARN icache_bsd_aarch64.hpp not found')
