@@ -554,3 +554,23 @@ if p.exists():
         print('[ios_sed_fixes] fix17: atomic.hpp already patched')
 else:
     print('[ios_sed_fixes] fix17: WARN atomic.hpp not found')
+
+# Fix 18: signals_posix.cpp missing PROT_READ/PROT_EXEC/PROT_WRITE — the
+# add-os-bsd-include hunk that also adds sys/mman.h rejected. Add it directly.
+p = ROOT / 'src/hotspot/os/posix/signals_posix.cpp'
+if p.exists():
+    s = p.read_text()
+    if '<sys/mman.h>' not in s:
+        s2 = s.replace(
+            '#include <signal.h>',
+            '#include <signal.h>\n#include <sys/mman.h>'
+        )
+        if s2 != s:
+            p.write_text(s2)
+            print('[ios_sed_fixes] fix18: patched signals_posix.cpp sys/mman.h')
+        else:
+            print('[ios_sed_fixes] fix18: WARN signal.h not found in signals_posix.cpp')
+    else:
+        print('[ios_sed_fixes] fix18: signals_posix.cpp already patched')
+else:
+    print('[ios_sed_fixes] fix18: WARN signals_posix.cpp not found')
