@@ -534,3 +534,23 @@ if p.exists():
         print('[ios_sed_fixes] fix16: DeviceRequiresTXMWorkaround not found in os_bsd.cpp')
 else:
     print('[ios_sed_fixes] fix16: WARN os_bsd.cpp not found')
+
+# Fix 17: atomic.hpp needs #include "os_bsd.hpp" so mirror_w/mirror_x macros
+# are visible. The mirror_mapping patch's hunk for this file rejected.
+p = ROOT / 'src/hotspot/share/runtime/atomic.hpp'
+if p.exists():
+    s = p.read_text()
+    if 'os_bsd.hpp' not in s:
+        s2 = s.replace(
+            '#include "utilities/macros.hpp"\n\n#include <type_traits>',
+            '#include "utilities/macros.hpp"\n\n#ifdef __APPLE__\n#include "os_bsd.hpp"\n#endif\n\n#include <type_traits>'
+        )
+        if s2 != s:
+            p.write_text(s2)
+            print('[ios_sed_fixes] fix17: patched atomic.hpp os_bsd.hpp include')
+        else:
+            print('[ios_sed_fixes] fix17: WARN atomic.hpp pattern not found')
+    else:
+        print('[ios_sed_fixes] fix17: atomic.hpp already patched')
+else:
+    print('[ios_sed_fixes] fix17: WARN atomic.hpp not found')
