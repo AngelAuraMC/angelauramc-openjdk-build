@@ -595,3 +595,32 @@ if p.exists():
         print('[ios_sed_fixes] fix19: icache_bsd_aarch64.hpp already patched')
 else:
     print('[ios_sed_fixes] fix19: WARN icache_bsd_aarch64.hpp not found')
+
+# Fix 20: java.base/Lib.gmk - libosxsecurity uses macOS Keychain APIs
+# unavailable on iOS. Skip it by changing the macosx guard to macosx_NOTIOS.
+p = ROOT / 'make/modules/java.base/Lib.gmk'
+if p.exists():
+    s = p.read_text()
+    original = s
+    s = re.sub(
+        r'ifeq \(\$\(call isTargetOs, macosx\), true\)(\s*\n\s*#{10,}\s*\n\s*# Create the macosx security library)',
+        r'ifeq ($(call isTargetOs, macosx_NOTIOS), true)\1',
+        s
+    )
+    if s != original:
+        p.write_text(s)
+        print('[ios_sed_fixes] fix20: patched Lib.gmk libosxsecurity guard')
+    else:
+        # Try direct string replacement
+        old = 'ifeq ($(call isTargetOs, macosx), true)\n################################################################################\n# Create the macosx security library'
+        new = 'ifeq ($(call isTargetOs, macosx_NOTIOS), true)\n################################################################################\n# Create the macosx security library'
+        if old in s:
+            p.write_text(s.replace(old, new))
+            print('[ios_sed_fixes] fix20: patched Lib.gmk libosxsecurity guard (direct)')
+        else:
+            print('[ios_sed_fixes] fix20: WARN libosxsecurity guard not found')
+            for line in s.splitlines():
+                if 'osxsecurity' in line or ('isTargetOs' in line and 'macosx' in line):
+                    print(' ', repr(line))
+else:
+    print('[ios_sed_fixes] fix20: WARN java.base/Lib.gmk not found')
