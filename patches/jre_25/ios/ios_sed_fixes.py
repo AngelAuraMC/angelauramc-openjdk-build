@@ -631,3 +631,32 @@ if p.exists():
             print('[ios_sed_fixes] fix20: WARN neither Lib.gmk nor KeystoreImpl.m fixable')
 else:
     print('[ios_sed_fixes] fix20: WARN java.base/Lib.gmk not found')
+
+# Fix 21: java.desktop/Lib.gmk - guard BUILD_LIBOSXAPP with macosx_NOTIOS.
+# Sources moved out under the iOS hack, so this needs skipping here too.
+p = ROOT / 'make/modules/java.desktop/Lib.gmk'
+if p.exists():
+    s = p.read_text()
+    if 'libosxapp disabled for iOS' not in s:
+        old = '$(eval $(call SetupJdkLibrary, BUILD_LIBOSXAPP,'
+        if old in s:
+            idx = s.index(old)
+            targets_marker = 'TARGETS += $(BUILD_LIBOSXAPP)'
+            targets_idx = s.index(targets_marker, idx)
+            end_idx = targets_idx + len(targets_marker)
+            block = s[idx:end_idx]
+            new_block = (
+                '# libosxapp disabled for iOS - sources moved to macosx_NOTIOS\n'
+                'ifeq ($(call isTargetOs, macosx_NOTIOS), true)\n'
+                + block + '\n'
+                'endif'
+            )
+            s = s[:idx] + new_block + s[end_idx:]
+            p.write_text(s)
+            print('[ios_sed_fixes] fix21: patched java.desktop/Lib.gmk BUILD_LIBOSXAPP guard')
+        else:
+            print('[ios_sed_fixes] fix21: WARN BUILD_LIBOSXAPP block not found')
+    else:
+        print('[ios_sed_fixes] fix21: java.desktop/Lib.gmk already patched')
+else:
+    print('[ios_sed_fixes] fix21: WARN java.desktop/Lib.gmk not found')
