@@ -596,31 +596,38 @@ if p.exists():
 else:
     print('[ios_sed_fixes] fix19: WARN icache_bsd_aarch64.hpp not found')
 
-# Fix 20: java.base/Lib.gmk - libosxsecurity uses macOS Keychain APIs
-# unavailable on iOS. Skip it by changing the macosx guard to macosx_NOTIOS.
+# Fix 20: libosxsecurity uses macOS Keychain APIs unavailable on iOS.
+# The Lib.gmk guard didn't apply. Skip by changing the ifeq guard directly
+# using regex to catch any whitespace variation.
 p = ROOT / 'make/modules/java.base/Lib.gmk'
 if p.exists():
     s = p.read_text()
     original = s
+    # Replace any macosx guard that precedes libosxsecurity
     s = re.sub(
-        r'ifeq \(\$\(call isTargetOs, macosx\), true\)(\s*\n\s*#{10,}\s*\n\s*# Create the macosx security library)',
-        r'ifeq ($(call isTargetOs, macosx_NOTIOS), true)\1',
+        r'(ifeq \(\$\(call isTargetOs, )macosx(\), true\)\n[^\n]*\n[^\n]*security library)',
+        r'\1macosx_NOTIOS\2',
         s
     )
     if s != original:
         p.write_text(s)
         print('[ios_sed_fixes] fix20: patched Lib.gmk libosxsecurity guard')
     else:
-        # Try direct string replacement
-        old = 'ifeq ($(call isTargetOs, macosx), true)\n################################################################################\n# Create the macosx security library'
-        new = 'ifeq ($(call isTargetOs, macosx_NOTIOS), true)\n################################################################################\n# Create the macosx security library'
-        if old in s:
-            p.write_text(s.replace(old, new))
-            print('[ios_sed_fixes] fix20: patched Lib.gmk libosxsecurity guard (direct)')
+        # Nuclear option: just comment out the entire libosxsecurity source
+        p2 = ROOT / 'src/java.base/macosx/native/libosxsecurity/KeystoreImpl.m'
+        if p2.exists():
+            content = p2.read_text()
+            if '#if !TARGET_OS_IPHONE' not in content:
+                p2.write_text(
+                    '#include <TargetConditionals.h>\n'
+                    '#if !TARGET_OS_IPHONE\n'
+                    + content +
+                    '#endif\n'
+                )
+                print('[ios_sed_fixes] fix20: wrapped KeystoreImpl.m in iOS guard')
+            else:
+                print('[ios_sed_fixes] fix20: KeystoreImpl.m already guarded')
         else:
-            print('[ios_sed_fixes] fix20: WARN libosxsecurity guard not found')
-            for line in s.splitlines():
-                if 'osxsecurity' in line or ('isTargetOs' in line and 'macosx' in line):
-                    print(' ', repr(line))
+            print('[ios_sed_fixes] fix20: WARN neither Lib.gmk nor KeystoreImpl.m fixable')
 else:
     print('[ios_sed_fixes] fix20: WARN java.base/Lib.gmk not found')
