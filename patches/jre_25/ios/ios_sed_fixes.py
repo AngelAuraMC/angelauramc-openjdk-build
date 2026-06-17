@@ -496,42 +496,85 @@ if p.exists():
 else:
     print('[ios_sed_fixes] fix15: WARN java.desktop/Lib.gmk not found')
 
-
 # Fix 16: os_bsd.cpp - DeviceRequiresTXMWorkaround() calls opendir/readdir
 # which acquires a pthread mutex at address 0x40 that is unmapped on Darwin 27
 # during early JVM init (CodeCache::initialize). Replace with sysctlbyname
 # which is safe to call at any point during init.
+#
+# NOTE: a naive regex like '\{[^}]*\}' breaks if the function body has any
+# nested braces (e.g. an if-block), since [^}]* stops at the FIRST closing
+# brace, not the function's actual closing brace. We instead find the
+# opening brace and walk forward counting depth to find the true end.
 p = ROOT / 'src/hotspot/os/bsd/os_bsd.cpp'
 if p.exists():
     s = p.read_text()
-    if 'sysctlbyname("hw.machine"' not in s and 'DeviceRequiresTXMWorkaround' in s:
-        original = s
-        # Find the function and replace its body regardless of exact whitespace
-        s2 = re.sub(
-            r'static bool DeviceRequiresTXMWorkaround\(\) \{[^}]*\}',
-            'static bool DeviceRequiresTXMWorkaround() {\n'
-            '  // readdir() crashes on Darwin 27 during early JVM init:\n'
-            '  // the pthread mutex it acquires at 0x40 is unmapped at this\n'
-            '  // point in CodeCache::initialize. Use sysctlbyname instead.\n'
-            '  char machine[64] = {};\n'
-            '  size_t len = sizeof(machine);\n'
-            '  if (sysctlbyname("hw.machine", machine, &len, nullptr, 0) != 0) {\n'
-            '    return false;\n'
-            '  }\n'
-            '  return strncmp(machine, "iPhone", 6) == 0;\n'
-            '}',
-            s,
-            flags=re.DOTALL
-        )
-        if s2 != s:
-            p.write_text(s2)
-            print('[ios_sed_fixes] fix16: patched DeviceRequiresTXMWorkaround in os_bsd.cpp')
+    if 'sysctlbyname("hw.machine"' not in s:
+        marker = 'DeviceRequiresTXMWorkaround()'
+        idx = s.find(marker)
+        if idx == -1:
+            print('[ios_sed_fixes] fix16: WARN DeviceRequiresTXMWorkaround not found in os_bsd.cpp')
         else:
-            print('[ios_sed_fixes] fix16: WARN DeviceRequiresTXMWorkaround pattern not found')
-    elif 'sysctlbyname("hw.machine"' in s:
-        print('[ios_sed_fixes] fix16: os_bsd.cpp already patched')
+            # Find the function definition's opening brace (skip past any
+            # forward declaration that ends in ';' before the real def with '{')
+            search_from = idx
+            func_start = None
+            brace_open = None
+            while True:
+                next_marker = s.find(marker, search_from)
+                if next_marker == -1:
+                    break
+                # look at what follows after "()" - skip whitespace
+                j = next_marker + len(marker)
+                while j < len(s) and s[j] in ' \t\n':
+                    j += 1
+                if j < len(s) and s[j] == '{':
+                    func_start = next_marker
+                    brace_open = j
+                    break
+                search_from = next_marker + len(marker)
+
+            if brace_open is None:
+                print('[ios_sed_fixes] fix16: WARN could not find function body opening brace')
+            else:
+                # Walk forward counting brace depth to find the matching close
+                depth = 0
+                i = brace_open
+                func_end = None
+                while i < len(s):
+                    if s[i] == '{':
+                        depth += 1
+                    elif s[i] == '}':
+                        depth -= 1
+                        if depth == 0:
+                            func_end = i
+                            break
+                    i += 1
+
+                if func_end is None:
+                    print('[ios_sed_fixes] fix16: WARN could not find matching closing brace')
+                else:
+                    # Find the actual start of the function signature (walk
+                    # back from func_start to the start of the line containing
+                    # "static bool" or similar, to keep the replacement clean)
+                    line_start = s.rfind('\n', 0, func_start) + 1
+                    new_func = (
+                        'static bool DeviceRequiresTXMWorkaround() {\n'
+                        '  // readdir() crashes on Darwin 27 during early JVM init:\n'
+                        '  // the pthread mutex it acquires at 0x40 is unmapped at this\n'
+                        '  // point in CodeCache::initialize. Use sysctlbyname instead.\n'
+                        '  char machine[64] = {};\n'
+                        '  size_t len = sizeof(machine);\n'
+                        '  if (sysctlbyname("hw.machine", machine, &len, nullptr, 0) != 0) {\n'
+                        '    return false;\n'
+                        '  }\n'
+                        '  return strncmp(machine, "iPhone", 6) == 0;\n'
+                        '}'
+                    )
+                    s = s[:line_start] + new_func + s[func_end+1:]
+                    p.write_text(s)
+                    print('[ios_sed_fixes] fix16: patched DeviceRequiresTXMWorkaround in os_bsd.cpp (brace-counted)')
     else:
-        print('[ios_sed_fixes] fix16: DeviceRequiresTXMWorkaround not found in os_bsd.cpp')
+        print('[ios_sed_fixes] fix16: os_bsd.cpp already patched')
 else:
     print('[ios_sed_fixes] fix16: WARN os_bsd.cpp not found')
 
