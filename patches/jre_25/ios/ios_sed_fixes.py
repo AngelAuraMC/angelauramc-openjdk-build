@@ -688,3 +688,23 @@ if p.exists():
         print('[ios_sed_fixes] fix22: java.desktop/Lib.gmk already patched')
 else:
     print('[ios_sed_fixes] fix22: WARN java.desktop/Lib.gmk not found')
+
+# Fix 23: java.security.jgss/Lib.gmk - libosxkrb5 uses Kerberos.h and
+# SCDynamicStore APIs unavailable on iOS. Disable the whole target.
+p = ROOT / 'make/modules/java.security.jgss/Lib.gmk'
+if p.exists():
+    s = p.read_text()
+    if 'BUILD_LIBOSXKRB5)  # disabled for iOS' not in s:
+        s2 = s.replace(
+            'TARGETS += $(BUILD_LIBOSXKRB5)',
+            '#TARGETS += $(BUILD_LIBOSXKRB5)  # disabled for iOS'
+        )
+        if s2 != s:
+            p.write_text(s2)
+            print('[ios_sed_fixes] fix23: patched java.security.jgss/Lib.gmk libosxkrb5')
+        else:
+            print('[ios_sed_fixes] fix23: WARN BUILD_LIBOSXKRB5 not found in Lib.gmk')
+    else:
+        print('[ios_sed_fixes] fix23: libosxkrb5 already disabled')
+else:
+    print('[ios_sed_fixes] fix23: WARN java.security.jgss/Lib.gmk not found')
