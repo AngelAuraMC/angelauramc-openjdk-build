@@ -660,3 +660,31 @@ if p.exists():
         print('[ios_sed_fixes] fix21: java.desktop/Lib.gmk already patched')
 else:
     print('[ios_sed_fixes] fix21: WARN java.desktop/Lib.gmk not found')
+
+# Fix 22: java.desktop/Lib.gmk - guard BUILD_LIBOSX with macosx_NOTIOS.
+p = ROOT / 'make/modules/java.desktop/Lib.gmk'
+if p.exists():
+    s = p.read_text()
+    if 'libosx disabled for iOS' not in s:
+        old = '$(eval $(call SetupJdkLibrary, BUILD_LIBOSX,'
+        if old in s:
+            idx = s.index(old)
+            targets_marker = 'TARGETS += $(BUILD_LIBOSX)'
+            targets_idx = s.index(targets_marker, idx)
+            end_idx = targets_idx + len(targets_marker)
+            block = s[idx:end_idx]
+            new_block = (
+                '# libosx disabled for iOS - sources moved to macosx_NOTIOS\n'
+                'ifeq ($(call isTargetOs, macosx_NOTIOS), true)\n'
+                + block + '\n'
+                'endif'
+            )
+            s = s[:idx] + new_block + s[end_idx:]
+            p.write_text(s)
+            print('[ios_sed_fixes] fix22: patched java.desktop/Lib.gmk BUILD_LIBOSX guard')
+        else:
+            print('[ios_sed_fixes] fix22: WARN BUILD_LIBOSX block not found')
+    else:
+        print('[ios_sed_fixes] fix22: java.desktop/Lib.gmk already patched')
+else:
+    print('[ios_sed_fixes] fix22: WARN java.desktop/Lib.gmk not found')
