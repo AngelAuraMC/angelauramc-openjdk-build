@@ -751,3 +751,54 @@ if p.exists():
         print('[ios_sed_fixes] fix23: libosxkrb5 already disabled')
 else:
     print('[ios_sed_fixes] fix23: WARN java.security.jgss/Lib.gmk not found')
+
+# Fix 24: os_bsd.cpp - get_debug_jit_mapping() calls the DEPRECATED
+# BreakGetJITMapping() (brk #0x69) to request a new RX region from the
+# debugger. The current UniversalJIT26.js script no longer implements this
+# legacy command - it just writes a hardcoded error placeholder (0xE0000069)
+# into the return register and logs a deprecation warning. That garbage
+# address then gets passed to vm_remap(), which fails with KERN_INVALID_ADDRESS
+# (error code 1) - this is the actual cause of "[JIT26] Failed to remap RX
+# region 1" (the "1" is the kern_return_t error code, not a region index).
+#
+# Fix: call the modern JIT26PrepareRegion(addr, len) mechanism instead - the
+# same one Amethyst's own hooked_mmap() already uses successfully elsewhere.
+# Passing addr=NULL tells the debugger script to allocate a brand new RX
+# region (matching the legacy call's intent) instead of preparing an
+# existing one.
+p = ROOT / 'src/hotspot/os/bsd/os_bsd.cpp'
+if p.exists():
+    s = p.read_text()
+    if 'JIT26PrepareRegion(NULL, bytes)' not in s and 'BreakGetJITMapping(bytes)' in s:
+        original = s
+
+        # Add extern "C" declaration for JIT26PrepareRegion right before the
+        # BreakGetJITMapping naked-asm stub definition, so the call below
+        # resolves at link time against Amethyst's exported symbol.
+        marker = '__attribute__((naked,noinline,optnone))\nchar* BreakGetJITMapping(size_t bytes) {'
+        if marker in s:
+            s = s.replace(
+                marker,
+                'extern "C" void* JIT26PrepareRegion(void *addr, size_t len);\n\n'
+                + marker
+            )
+
+        # Replace the actual call site to use the modern mechanism.
+        s = s.replace(
+            'buf_rx = (vm_address_t)BreakGetJITMapping(bytes);',
+            'buf_rx = (vm_address_t)JIT26PrepareRegion(NULL, bytes);'
+        )
+
+        if s != original:
+            p.write_text(s)
+            print('[ios_sed_fixes] fix24: patched os_bsd.cpp to use JIT26PrepareRegion instead of deprecated BreakGetJITMapping')
+        else:
+            print('[ios_sed_fixes] fix24: WARN expected patterns not found, no changes made')
+    elif 'JIT26PrepareRegion(NULL, bytes)' in s:
+        print('[ios_sed_fixes] fix24: os_bsd.cpp already patched')
+    else:
+        print('[ios_sed_fixes] fix24: WARN BreakGetJITMapping(bytes) call site not found')
+else:
+    print('[ios_sed_fixes] fix24: WARN os_bsd.cpp not found')
+EOF
+echo "Done"
