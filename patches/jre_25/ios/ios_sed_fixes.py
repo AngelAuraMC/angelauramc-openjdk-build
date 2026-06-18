@@ -752,51 +752,59 @@ if p.exists():
 else:
     print('[ios_sed_fixes] fix23: WARN java.security.jgss/Lib.gmk not found')
 
-# Fix 24: os_bsd.cpp - get_debug_jit_mapping() calls the DEPRECATED
-# BreakGetJITMapping() (brk #0x69) to request a new RX region from the
-# debugger. The current UniversalJIT26.js script no longer implements this
-# legacy command - it just writes a hardcoded error placeholder (0xE0000069)
-# into the return register and logs a deprecation warning. That garbage
-# address then gets passed to vm_remap(), which fails with KERN_INVALID_ADDRESS
-# (error code 1) - this is the actual cause of "[JIT26] Failed to remap RX
-# region 1" (the "1" is the kern_return_t error code, not a region index).
-#
-# Fix: call the modern JIT26PrepareRegion(addr, len) mechanism instead - the
-# same one Amethyst's own hooked_mmap() already uses successfully elsewhere.
-# Passing addr=NULL tells the debugger script to allocate a brand new RX
-# region (matching the legacy call's intent) instead of preparing an
-# existing one.
+# Fix 24: os_bsd.cpp - get_debug_jit_mapping() uses BreakGetJITMapping()
+# (brk #0x69) which is deprecated in current JIT26 scripts and returns a
+# garbage address (0xcccccccc...). vm_remap() then fails with KERN_INVALID_ADDRESS
+# (error 1) which is what "[JIT26] Failed to remap RX region 1" actually means.
+# Fix: allocate the RX region normally with mmap, then use JIT26PrepareRegion
+# (brk #0xf00d command 1) to make it executable, matching what hooked_mmap does.
 p = ROOT / 'src/hotspot/os/bsd/os_bsd.cpp'
 if p.exists():
     s = p.read_text()
-    if 'JIT26PrepareRegion(NULL, bytes)' not in s and 'BreakGetJITMapping(bytes)' in s:
-        original = s
-
-        # Add extern "C" declaration for JIT26PrepareRegion right before the
-        # BreakGetJITMapping naked-asm stub definition, so the call below
-        # resolves at link time against Amethyst's exported symbol.
-        marker = '__attribute__((naked,noinline,optnone))\nchar* BreakGetJITMapping(size_t bytes) {'
-        if marker in s:
-            s = s.replace(
-                marker,
-                'extern "C" void* JIT26PrepareRegion(void *addr, size_t len);\n\n'
-                + marker
-            )
-
-        # Replace the actual call site to use the modern mechanism.
-        s = s.replace(
-            'buf_rx = (vm_address_t)BreakGetJITMapping(bytes);',
-            'buf_rx = (vm_address_t)JIT26PrepareRegion(NULL, bytes);'
+    if 'BreakGetJITMapping' in s and 'brk #0xf00d' not in s:
+        old = (
+            'char* get_debug_jit_mapping(size_t bytes) {\n'
+            '    // the map we got has debuggable flag, r-x, setup mirrored map\n'
+            '    vm_address_t buf_rx = 0;\n'
+            '    if(MirrorMappedCodeCache) {\n'
+            '        if(DeviceRequiresTXMWorkaround()) {\n'
+            '            printf("[JIT26] Requesting %zu MB for JIT mapping\\n", bytes/ (1024 * 1024));\n'
+            '            buf_rx = (vm_address_t)BreakGetJITMapping(bytes);\n'
+            '        }\n'
+            '        if(buf_rx) {\n'
+            '            printf("[JIT26] Got JIT mapping %p from debugger\\n", (void*)buf_rx);\n'
+            '        } else {\n'
+            '            buf_rx = (vm_address_t)mmap(NULL, bytes, PROT_READ | PROT_EXEC, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);\n'
+            '        }'
         )
-
-        if s != original:
-            p.write_text(s)
-            print('[ios_sed_fixes] fix24: patched os_bsd.cpp to use JIT26PrepareRegion instead of deprecated BreakGetJITMapping')
+        new = (
+            'char* get_debug_jit_mapping(size_t bytes) {\n'
+            '    // the map we got has debuggable flag, r-x, setup mirrored map\n'
+            '    vm_address_t buf_rx = 0;\n'
+            '    if(MirrorMappedCodeCache) {\n'
+            '        // BreakGetJITMapping (brk #0x69) is deprecated in JIT26 scripts\n'
+            '        // and returns a garbage address causing vm_remap KERN_INVALID_ADDRESS.\n'
+            '        // Allocate normally then use JIT26PrepareRegion (brk #0xf00d cmd 1).\n'
+            '        printf("[JIT26] Requesting %zu MB for JIT mapping\\n", bytes / (1024 * 1024));\n'
+            '        buf_rx = (vm_address_t)mmap(NULL, bytes, PROT_READ | PROT_EXEC, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);\n'
+            '        if(buf_rx && buf_rx != (vm_address_t)MAP_FAILED) {\n'
+            '            JIT26PrepareRegion((void*)buf_rx, bytes);\n'
+            '            printf("[JIT26] Got JIT mapping %p via JIT26PrepareRegion\\n", (void*)buf_rx);\n'
+            '        }'
+        )
+        s2 = s.replace(old, new)
+        if s2 != s:
+            p.write_text(s2)
+            print('[ios_sed_fixes] fix24: patched get_debug_jit_mapping to use JIT26PrepareRegion')
         else:
-            print('[ios_sed_fixes] fix24: WARN expected patterns not found, no changes made')
-    elif 'JIT26PrepareRegion(NULL, bytes)' in s:
-        print('[ios_sed_fixes] fix24: os_bsd.cpp already patched')
+            print('[ios_sed_fixes] fix24: WARN get_debug_jit_mapping pattern not found')
+            print('[ios_sed_fixes] fix24: searching for BreakGetJITMapping...')
+            for i, line in enumerate(s.splitlines(), 1):
+                if 'BreakGetJITMapping' in line or 'get_debug_jit_mapping' in line:
+                    print(f'  {i}: {line}')
+    elif 'brk #0xf00d' in s:
+        print('[ios_sed_fixes] fix24: already patched')
     else:
-        print('[ios_sed_fixes] fix24: WARN BreakGetJITMapping(bytes) call site not found')
+        print('[ios_sed_fixes] fix24: BreakGetJITMapping not found - patch may already be applied or function changed')
 else:
     print('[ios_sed_fixes] fix24: WARN os_bsd.cpp not found')
