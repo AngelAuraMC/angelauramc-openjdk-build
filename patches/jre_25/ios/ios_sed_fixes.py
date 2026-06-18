@@ -800,5 +800,3 @@ if p.exists():
         print('[ios_sed_fixes] fix24: WARN BreakGetJITMapping(bytes) call site not found')
 else:
     print('[ios_sed_fixes] fix24: WARN os_bsd.cpp not found')
-EOF
-echo "Done"
