@@ -753,20 +753,30 @@ else:
     print('[ios_sed_fixes] fix23: WARN java.security.jgss/Lib.gmk not found')
 
 # Fix 24: os_bsd.cpp - get_debug_jit_mapping() uses BreakGetJITMapping()
-# (brk #0x69) which is deprecated in current JIT26 scripts and returns a
-# garbage address (0xcccccccc...). vm_remap() then fails with KERN_INVALID_ADDRESS
-# (error 1) which is what "[JIT26] Failed to remap RX region 1" actually means.
-# Fix: allocate the RX region normally with mmap, then use JIT26PrepareRegion
-# (brk #0xf00d command 1) to make it executable, matching what hooked_mmap does.
+# (brk #0x69) which is deprecated and returns a garbage address causing
+# vm_remap KERN_INVALID_ADDRESS (error 1) = "Failed to remap RX region 1".
+# Fix: allocate with mmap then use JIT26PrepareRegion protocol inline
+# (mov x16,#1; brk #0xf00d with x0=addr, x1=len) — same as Amethyst's utils.m.
 p = ROOT / 'src/hotspot/os/bsd/os_bsd.cpp'
 if p.exists():
     s = p.read_text()
     if 'BreakGetJITMapping' in s and 'brk #0xf00d' not in s:
+        # First inject the inline PrepareRegion function before get_debug_jit_mapping
+        inject = (
+            '__attribute__((noinline,optnone,naked))\n'
+            'static void* JIT26PrepareRegion_inline(void *addr, size_t len) {\n'
+            '    asm("mov x16, #1 \\n"\n'
+            '        "brk #0xf00d \\n"\n'
+            '        "ret");\n'
+            '}\n\n'
+        )
+        old_func_marker = 'char* get_debug_jit_mapping(size_t bytes) {'
+        if old_func_marker in s:
+            idx = s.index(old_func_marker)
+            s = s[:idx] + inject + s[idx:]
+
+        # Now replace the BreakGetJITMapping call with the inline version
         old = (
-            'char* get_debug_jit_mapping(size_t bytes) {\n'
-            '    // the map we got has debuggable flag, r-x, setup mirrored map\n'
-            '    vm_address_t buf_rx = 0;\n'
-            '    if(MirrorMappedCodeCache) {\n'
             '        if(DeviceRequiresTXMWorkaround()) {\n'
             '            printf("[JIT26] Requesting %zu MB for JIT mapping\\n", bytes/ (1024 * 1024));\n'
             '            buf_rx = (vm_address_t)BreakGetJITMapping(bytes);\n'
@@ -778,33 +788,25 @@ if p.exists():
             '        }'
         )
         new = (
-            'char* get_debug_jit_mapping(size_t bytes) {\n'
-            '    // the map we got has debuggable flag, r-x, setup mirrored map\n'
-            '    vm_address_t buf_rx = 0;\n'
-            '    if(MirrorMappedCodeCache) {\n'
-            '        // BreakGetJITMapping (brk #0x69) is deprecated in JIT26 scripts\n'
-            '        // and returns a garbage address causing vm_remap KERN_INVALID_ADDRESS.\n'
-            '        // Allocate normally then use JIT26PrepareRegion (brk #0xf00d cmd 1).\n'
             '        printf("[JIT26] Requesting %zu MB for JIT mapping\\n", bytes / (1024 * 1024));\n'
             '        buf_rx = (vm_address_t)mmap(NULL, bytes, PROT_READ | PROT_EXEC, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);\n'
             '        if(buf_rx && buf_rx != (vm_address_t)MAP_FAILED) {\n'
-            '            JIT26PrepareRegion((void*)buf_rx, bytes);\n'
+            '            JIT26PrepareRegion_inline((void*)buf_rx, bytes);\n'
             '            printf("[JIT26] Got JIT mapping %p via JIT26PrepareRegion\\n", (void*)buf_rx);\n'
             '        }'
         )
         s2 = s.replace(old, new)
         if s2 != s:
             p.write_text(s2)
-            print('[ios_sed_fixes] fix24: patched get_debug_jit_mapping to use JIT26PrepareRegion')
+            print('[ios_sed_fixes] fix24: patched get_debug_jit_mapping to use JIT26PrepareRegion inline')
         else:
-            print('[ios_sed_fixes] fix24: WARN get_debug_jit_mapping pattern not found')
-            print('[ios_sed_fixes] fix24: searching for BreakGetJITMapping...')
+            print('[ios_sed_fixes] fix24: WARN body replacement pattern not found')
             for i, line in enumerate(s.splitlines(), 1):
-                if 'BreakGetJITMapping' in line or 'get_debug_jit_mapping' in line:
+                if 'BreakGetJITMapping' in line or 'DeviceRequiresTXMWorkaround' in line:
                     print(f'  {i}: {line}')
     elif 'brk #0xf00d' in s:
         print('[ios_sed_fixes] fix24: already patched')
     else:
-        print('[ios_sed_fixes] fix24: BreakGetJITMapping not found - patch may already be applied or function changed')
+        print('[ios_sed_fixes] fix24: BreakGetJITMapping not found')
 else:
     print('[ios_sed_fixes] fix24: WARN os_bsd.cpp not found')
