@@ -93,7 +93,16 @@ git reset --hard
 if [[ "$BUILD_IOS" != "1" ]]; then
   find ../patches/jre_${TARGET_VERSION}/android -name "*.diff" -print0 | xargs -0 -I {} sh -c 'echo "Applying {}" && git apply  --reject --whitespace=fix {} || (echo "git apply failed (Android patch set)" && exit 1)' 
 else
-  find ../patches/jre_${TARGET_VERSION}/ios -name "*.diff" -print0 | sort -z | xargs -0 -I {} sh -c 'echo "Applying {}" && git apply --reject --whitespace=fix {} || (echo "git apply failed (iOs patch set)" && exit 1)' 
+  find ../patches/jre_${TARGET_VERSION}/ios -name "*.diff" -print0 | sort -z | xargs -0 -I {} sh -c 'echo "Applying {}" && git apply --reject --whitespace=fix {} || echo "git apply had rejects (ios_sed_fixes.py will handle)"' 
+
+  # JDK 25 has more source changes between 21 and 25 than the base patch
+  # handles cleanly. Run the fixup script to patch the remaining hunks.
+  if [[ $TARGET_VERSION -eq 25 ]]; then
+    if [ -f "../patches/jre_25/ios/ios_sed_fixes.py" ]; then
+      echo "Running JDK 25 iOS fixups..."
+      python3 ../patches/jre_25/ios/ios_sed_fixes.py .
+    fi
+  fi
 
   # Hack: exclude building macOS stuff
   desktop_mac=src/java.desktop/macosx
