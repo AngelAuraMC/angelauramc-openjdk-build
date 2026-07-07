@@ -178,9 +178,9 @@ if p.exists():
     if 'libjawt disabled for iOS' not in s:
         original = s
         old = '$(eval $(call SetupJdkLibrary, BUILD_LIBJAWT,'
-        if old in s:
+        targets_marker = 'TARGETS += $(BUILD_LIBJAWT)'
+        if old in s and targets_marker in s[s.index(old):]:
             idx = s.index(old)
-            targets_marker = 'TARGETS += $(BUILD_LIBJAWT)'
             targets_idx = s.index(targets_marker, idx)
             end_idx = targets_idx + len(targets_marker)
             block = s[idx:end_idx]
@@ -193,6 +193,8 @@ if p.exists():
             s = s[:idx] + new_block + s[end_idx:]
             p.write_text(s)
             print('[ios_sed_fixes] fix7: patched AwtLibraries.gmk BUILD_LIBJAWT guard')
+        elif old in s:
+            print('[ios_sed_fixes] fix7: WARN found SetupJdkLibrary block but no matching TARGETS marker afterward; skipping (would have raised ValueError before)')
         else:
             print('[ios_sed_fixes] fix7: WARN BUILD_LIBJAWT block not found')
     else:
@@ -682,9 +684,9 @@ if p.exists():
     s = p.read_text()
     if 'libosxapp disabled for iOS' not in s:
         old = '$(eval $(call SetupJdkLibrary, BUILD_LIBOSXAPP,'
-        if old in s:
+        targets_marker = 'TARGETS += $(BUILD_LIBOSXAPP)'
+        if old in s and targets_marker in s[s.index(old):]:
             idx = s.index(old)
-            targets_marker = 'TARGETS += $(BUILD_LIBOSXAPP)'
             targets_idx = s.index(targets_marker, idx)
             end_idx = targets_idx + len(targets_marker)
             block = s[idx:end_idx]
@@ -697,6 +699,8 @@ if p.exists():
             s = s[:idx] + new_block + s[end_idx:]
             p.write_text(s)
             print('[ios_sed_fixes] fix21: patched java.desktop/Lib.gmk BUILD_LIBOSXAPP guard')
+        elif old in s:
+            print('[ios_sed_fixes] fix21: WARN found SetupJdkLibrary block but no matching TARGETS marker afterward; skipping (would have raised ValueError before)')
         else:
             print('[ios_sed_fixes] fix21: WARN BUILD_LIBOSXAPP block not found')
     else:
@@ -710,9 +714,9 @@ if p.exists():
     s = p.read_text()
     if 'libosx disabled for iOS' not in s:
         old = '$(eval $(call SetupJdkLibrary, BUILD_LIBOSX,'
-        if old in s:
+        targets_marker = 'TARGETS += $(BUILD_LIBOSX)'
+        if old in s and targets_marker in s[s.index(old):]:
             idx = s.index(old)
-            targets_marker = 'TARGETS += $(BUILD_LIBOSX)'
             targets_idx = s.index(targets_marker, idx)
             end_idx = targets_idx + len(targets_marker)
             block = s[idx:end_idx]
@@ -725,6 +729,8 @@ if p.exists():
             s = s[:idx] + new_block + s[end_idx:]
             p.write_text(s)
             print('[ios_sed_fixes] fix22: patched java.desktop/Lib.gmk BUILD_LIBOSX guard')
+        elif old in s:
+            print('[ios_sed_fixes] fix22: WARN found SetupJdkLibrary block but no matching TARGETS marker afterward; skipping (would have raised ValueError before)')
         else:
             print('[ios_sed_fixes] fix22: WARN BUILD_LIBOSX block not found')
     else:
@@ -800,13 +806,23 @@ if p.exists():
             p.write_text(s2)
             print('[ios_sed_fixes] fix24: patched get_debug_jit_mapping to use JIT26PrepareRegion inline')
         else:
-            print('[ios_sed_fixes] fix24: WARN body replacement pattern not found')
+            print('[ios_sed_fixes] fix24: FATAL body replacement pattern not found')
+            print('[ios_sed_fixes] fix24: this is the fix for the JIT26 SIGBUS crash - a silent no-op here')
+            print('[ios_sed_fixes] fix24: means the old BreakGetJITMapping/debugger path ships UNCHANGED')
+            print('[ios_sed_fixes] fix24: and the crash will still happen with no indication why. Failing loudly instead.')
             for i, line in enumerate(s.splitlines(), 1):
                 if 'BreakGetJITMapping' in line or 'DeviceRequiresTXMWorkaround' in line:
                     print(f'  {i}: {line}')
+            sys.exit(1)
     elif 'brk #0xf00d' in s:
         print('[ios_sed_fixes] fix24: already patched')
     else:
-        print('[ios_sed_fixes] fix24: BreakGetJITMapping not found')
+        print('[ios_sed_fixes] fix24: FATAL BreakGetJITMapping not found - expected os_bsd.cpp to already')
+        print('[ios_sed_fixes] fix24: contain the mirror-mapping patch from 2_mirror_mapping.diff by this point.')
+        print('[ios_sed_fixes] fix24: if that diff failed to apply (check for os_bsd.cpp.rej), the JIT26')
+        print('[ios_sed_fixes] fix24: mechanism is entirely missing, not just unpatched. Failing loudly instead')
+        print('[ios_sed_fixes] fix24: of silently shipping a JDK with no JIT26 support at all.')
+        sys.exit(1)
 else:
-    print('[ios_sed_fixes] fix24: WARN os_bsd.cpp not found')
+    print('[ios_sed_fixes] fix24: FATAL os_bsd.cpp not found - JDK source tree looks wrong')
+    sys.exit(1)
