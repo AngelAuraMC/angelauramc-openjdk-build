@@ -826,3 +826,63 @@ if p.exists():
 else:
     print('[ios_sed_fixes] fix24: FATAL os_bsd.cpp not found - JDK source tree looks wrong')
     sys.exit(1)
+
+# Fix 25: EXPERIMENTAL - after fix24, JIT26PrepareRegion_inline is only ever
+# called on buf_rx (the original mmap'd RX region) before vm_remap() carves
+# out a second buf_rw view of the same physical pages. The one other place
+# in this codebase that uses the JIT26PrepareRegion protocol successfully
+# (Natives/dyld_bypass_validation.m) never follows it with a vm_remap - the
+# prepared region is used directly, single-mapping, no dual RW/RX split.
+#
+# Hypothesis: the debugger-side handler for brk #0xf00d authorizes execution
+# at the level of the specific virtual-memory mapping/map-entry it was called
+# on, not the underlying physical pages. If so, vm_remap()'ing buf_rx to
+# create buf_rw produces a *new* map entry that never went through its own
+# prepare call, and while buf_rw itself is only used for writes (not exec),
+# it's untested whether creating that second mapping disturbs whatever
+# authorization was applied to the original buf_rx entry.
+#
+# This fix calls JIT26PrepareRegion_inline on buf_rw too, immediately after
+# vm_protect succeeds, as a direct test of that hypothesis. Non-fatal on
+# mismatch since this is experimental, not a confirmed-necessary fix like 24.
+p = ROOT / 'src/hotspot/os/bsd/os_bsd.cpp'
+if p.exists():
+    s = p.read_text()
+    if 'JIT26PrepareRegion_inline((void*)buf_rw' not in s:
+        old = (
+            '    // Protect region as RW\n'
+            '    ret = vm_protect(mach_task_self(), buf_rw, bytes, FALSE,\n'
+            '                     VM_PROT_READ | VM_PROT_WRITE);\n'
+            '    if (ret != KERN_SUCCESS) {\n'
+            '        fprintf(stderr, "[JIT26] Failed to set RW protection %d\\n", ret);\n'
+            '        return NULL;\n'
+            '    }\n'
+            '\n'
+            '    printf("[JIT26] mapping at RW=%p, RX=%p\\n", (void*)buf_rw, (void*)buf_rx);'
+        )
+        new = (
+            '    // Protect region as RW\n'
+            '    ret = vm_protect(mach_task_self(), buf_rw, bytes, FALSE,\n'
+            '                     VM_PROT_READ | VM_PROT_WRITE);\n'
+            '    if (ret != KERN_SUCCESS) {\n'
+            '        fprintf(stderr, "[JIT26] Failed to set RW protection %d\\n", ret);\n'
+            '        return NULL;\n'
+            '    }\n'
+            '\n'
+            '    // EXPERIMENTAL (fix25): also prepare the RW mirror, in case the debugger\n'
+            '    // authorizes execution per-mapping rather than per-physical-page, and the\n'
+            '    // vm_remap above produced a map entry that never got its own prepare call.\n'
+            '    JIT26PrepareRegion_inline((void*)buf_rw, bytes);\n'
+            '\n'
+            '    printf("[JIT26] mapping at RW=%p, RX=%p\\n", (void*)buf_rw, (void*)buf_rx);'
+        )
+        s2 = s.replace(old, new)
+        if s2 != s:
+            p.write_text(s2)
+            print('[ios_sed_fixes] fix25: patched get_debug_jit_mapping to also prepare buf_rw (EXPERIMENTAL)')
+        else:
+            print('[ios_sed_fixes] fix25: WARN anchor text not found (vm_protect/mapping-at block) - skipping experimental fix')
+    else:
+        print('[ios_sed_fixes] fix25: already patched')
+else:
+    print('[ios_sed_fixes] fix25: WARN os_bsd.cpp not found')
