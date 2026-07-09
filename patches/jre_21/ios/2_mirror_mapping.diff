@@ -138,7 +138,7 @@ index eca9aa9c9..62b1a9594 100644
 +        return false;
 +    }
 +    // 1. Query value from globally-exported DeviceHasTXM symbol from the host app
-+    bool (*DeviceHasTXM)(void) = dlsym(RTLD_DEFAULT, "DeviceHasTXM");
++    bool (*DeviceHasTXM)(void) = (bool (*)(void))dlsym(RTLD_DEFAULT, "DeviceHasTXM");
 +    if(DeviceHasTXM) {
 +        return DeviceHasTXM();
 +    }

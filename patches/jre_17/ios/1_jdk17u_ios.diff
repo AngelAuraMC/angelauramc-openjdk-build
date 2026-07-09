@@ -354,9 +354,9 @@ index 96273fd0a..cb4e06a39 100644
  
    LIBAWT_LWAWT_EXTRA_SRC := \
        $(TOPDIR)/src/$(MODULE)/unix/native/common/awt \
-@@ -855,7 +857,7 @@ else
-     MACOSX_METAL_VERSION_MIN=10.14.0
- endif
+@@ -872,7 +872,7 @@ endif
+ 
+ ################################################################################
  
 -ifeq ($(call isTargetOs, macosx), true)
 +ifeq ($(call isTargetOs, macosx_NOTIOS), true)
