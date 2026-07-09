@@ -120,7 +120,7 @@ diff --git a/src/hotspot/os/bsd/os_bsd.cpp b/src/hotspot/os/bsd/os_bsd.cpp
 index eca9aa9c9..62b1a9594 100644
 --- a/src/hotspot/os/bsd/os_bsd.cpp
 +++ b/src/hotspot/os/bsd/os_bsd.cpp
-@@ -136,6 +136,135 @@ static volatile int processor_id_map[processor_id_map_size];
+@@ -136,6 +136,132 @@ static volatile int processor_id_map[processor_id_map_size];
  static volatile int processor_id_next = 0;
  #endif
  
@@ -134,21 +134,18 @@ index eca9aa9c9..62b1a9594 100644
 +}
 +
 +bool DeviceRequiresTXMWorkaround(bool condition) {
-+    if(condition) {
-+        DIR *d = opendir("/private/preboot");
-+        struct dirent *dir;
-+        char txmPath[PATH_MAX];
-+        while ((dir = readdir(d)) != NULL) {
-+            if(strlen(dir->d_name) == 96) {
-+                snprintf(txmPath, sizeof(txmPath), "/private/preboot/%s/usr/standalone/firmware/FUD/Ap,TrustedExecutionMonitor.img4", dir->d_name);
-+                break;
-+            }
-+        }
-+        closedir(d);
-+        return access(txmPath, F_OK) == 0;
-+    } else {
++    if(!condition) {
 +        return false;
 +    }
++    // 1. Query value from globally-exported DeviceHasTXM symbol from the host app
++    bool (*DeviceHasTXM)(void) = dlsym(RTLD_DEFAULT, "DeviceHasTXM");
++    if(DeviceHasTXM) {
++        return DeviceHasTXM();
++    }
++    printf("[JIT26] DeviceHasTXM() is missing. Looking for value from XNU_HAS_TXM\n");
++    // 2. Query value from an env var
++    const char *value = ::getenv("XNU_HAS_TXM");
++    return value && !strcmp(value, "1");
 +}
 +
 +char* get_debug_jit_mapping(size_t bytes) {
