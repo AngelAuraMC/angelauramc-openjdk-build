@@ -6,8 +6,7 @@ dummy_libs
 freetype-*-x86
 jdk1.8.0_*
 openjdk
-openjdk-17
-openjdk-21
+openjdk-*
 android-ndk-r*
 jre.tar.xz
 jreout

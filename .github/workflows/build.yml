@@ -56,7 +56,7 @@ jobs:
   build_iosport:
     strategy:
       matrix:
-        version: [17, 21]
+        version: [17, 21, 25]
       fail-fast: false
 
     name: "Build Java ${{ matrix.version }} for iOS aarch64"
