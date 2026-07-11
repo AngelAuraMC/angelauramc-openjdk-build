@@ -28,10 +28,10 @@ index a665b00f..eed57c77 100644
              config=`echo $1 | sed 's/^aarch64-/arm-/'`
              sub_args="$sub_args $config"
 diff --git a/common/autoconf/flags.m4 b/common/autoconf/flags.m4
-index e2e0c5a6..c5493ebe 100644
+index f4a8d304..b21c8a70 100644
 --- a/common/autoconf/flags.m4
 +++ b/common/autoconf/flags.m4
-@@ -729,8 +729,8 @@ AC_DEFUN_ONCE([FLAGS_SETUP_COMPILER_FLAGS_FOR_JDK],
+@@ -743,8 +743,8 @@ AC_DEFUN_ONCE([FLAGS_SETUP_COMPILER_FLAGS_FOR_JDK],
        # The macro takes the version with no dots, ex: 1070
        # Let the flags variables get resolved in make for easier override on make
        # command line.
@@ -42,7 +42,7 @@ index e2e0c5a6..c5493ebe 100644
      elif test "x$TOOLCHAIN_TYPE" = xclang; then
        # FIXME: This needs to be exported in spec.gmk due to closed legacy code.
        # FIXME: clean this up, and/or move it elsewhere.
-@@ -750,8 +750,8 @@ AC_DEFUN_ONCE([FLAGS_SETUP_COMPILER_FLAGS_FOR_JDK],
+@@ -764,8 +764,8 @@ AC_DEFUN_ONCE([FLAGS_SETUP_COMPILER_FLAGS_FOR_JDK],
        # The macro takes the version with no dots, ex: 1070
        # Let the flags variables get resolved in make for easier override on make
        # command line.
@@ -54,10 +54,10 @@ index e2e0c5a6..c5493ebe 100644
    fi
  
 diff --git a/common/autoconf/generated-configure.sh b/common/autoconf/generated-configure.sh
-index a6973629..3365acaa 100644
+index f85e8dfc..a146fd83 100644
 --- a/common/autoconf/generated-configure.sh
 +++ b/common/autoconf/generated-configure.sh
-@@ -15651,7 +15651,7 @@ printf "%s\n" "$COMPILE_TYPE" >&6; }
+@@ -14360,7 +14360,7 @@ $as_echo "$COMPILE_TYPE" >&6; }
        OPENJDK_TARGET_CPU_JLI_CFLAGS="$OPENJDK_TARGET_CPU_JLI_CFLAGS -DLIBARCH32NAME='\"i386\"' -DLIBARCH64NAME='\"amd64\"'"
      fi
    elif test "x$OPENJDK_TARGET_OS" = xmacosx && test "x$TOOLCHAIN_TYPE" = xclang ; then
@@ -66,7 +66,7 @@ index a6973629..3365acaa 100644
    fi
  
  
-@@ -15679,7 +15679,7 @@ printf "%s\n" "$COMPILE_TYPE" >&6; }
+@@ -14388,7 +14388,7 @@ $as_echo "$COMPILE_TYPE" >&6; }
        ADD_LP64="-D_LP64=1"
      fi
    elif test "x$OPENJDK_TARGET_OS" = xmacosx && test "x$TOOLCHAIN_TYPE" = xclang ; then
@@ -75,7 +75,7 @@ index a6973629..3365acaa 100644
    fi
    LP64=$A_LP64
  
-@@ -45706,8 +45706,8 @@ printf "%s\n" "$supports" >&6; }
+@@ -43617,8 +43617,8 @@ $as_echo "$supports" >&6; }
        # The macro takes the version with no dots, ex: 1070
        # Let the flags variables get resolved in make for easier override on make
        # command line.
@@ -86,7 +86,7 @@ index a6973629..3365acaa 100644
      elif test "x$TOOLCHAIN_TYPE" = xclang; then
        # FIXME: This needs to be exported in spec.gmk due to closed legacy code.
        # FIXME: clean this up, and/or move it elsewhere.
-@@ -45727,8 +45727,8 @@ printf "%s\n" "$supports" >&6; }
+@@ -43638,8 +43638,8 @@ $as_echo "$supports" >&6; }
        # The macro takes the version with no dots, ex: 1070
        # Let the flags variables get resolved in make for easier override on make
        # command line.
@@ -407,42 +407,47 @@ index bc8fccbd..522ea6a4 100644
      ShouldNotReachHere();
    }
 diff --git a/hotspot/src/os_cpu/bsd_aarch64/vm/os_bsd_aarch64.cpp b/hotspot/src/os_cpu/bsd_aarch64/vm/os_bsd_aarch64.cpp
-index 25919960..2b221c63 100644
+index 25919960..7cdd2fa5 100644
 --- a/hotspot/src/os_cpu/bsd_aarch64/vm/os_bsd_aarch64.cpp
 +++ b/hotspot/src/os_cpu/bsd_aarch64/vm/os_bsd_aarch64.cpp
-@@ -211,6 +211,30 @@ JVM_handle_bsd_signal(int sig,
+@@ -210,6 +210,18 @@ JVM_handle_bsd_signal(int sig,
+                         void* ucVoid,
                          int abort_if_unrecognized) {
    ucontext_t* uc = (ucontext_t*) ucVoid;
- 
++  //Hopefully placing W^X handing here is safe enough, maybe check repeat?
 +  if (sig == SIGBUS) {
-+    address addr = os::Bsd::ucontext_get_pc(uc);
-+    //address addr = (address) info->si_addr;
-+    //if (addr >= os::GLOBAL_CODE_CACHE_ADDR && addr < os::GLOBAL_CODE_CACHE_ADDR + 0x270000) {
-+    //  return !mprotect(os::GLOBAL_CODE_CACHE_ADDR, 0x270000, PROT_READ | PROT_EXEC);
-+    //} else if (addr >= os::GLOBAL_CODE_CACHE_ADDR + 0x270000 && addr < os::GLOBAL_CODE_CACHE_ADDR + 0x270000*2) {
-+    //  return !mprotect(os::GLOBAL_CODE_CACHE_ADDR + 0x270000, 0x270000, PROT_READ | PROT_EXEC);
-+    if (addr >= os::GLOBAL_CODE_CACHE_ADDR && addr < os::GLOBAL_CODE_CACHE_ADDR + os::GLOBAL_CODE_CACHE_SIZE && addr == info->si_addr) {
-+      return !mprotect((address) ((uintptr_t)addr & -PAGE_SIZE), PAGE_SIZE, PROT_READ | PROT_EXEC);
-+    } else { // if (t->is_Compiler_thread() || t->is_VM_thread()) {
-+      return !mprotect((address) ((uintptr_t)info->si_addr & -PAGE_SIZE), PAGE_SIZE, PROT_READ | PROT_WRITE);
++    address pc = (address) os::Bsd::ucontext_get_pc(uc);
++    // build machine, do not run because of panic on M4
++    if (pc == info->si_addr) {
++      bool handled = !mprotect((address) ((uintptr_t)pc & -PAGE_SIZE), PAGE_SIZE, PROT_READ | PROT_EXEC);
++      if (handled) return true;
++    } else if (info->si_addr >= CodeCache::low_bound() && info->si_addr < CodeCache::high_bound()) {
++      bool handled = !mprotect((address) ((uintptr_t)info->si_addr & -PAGE_SIZE), PAGE_SIZE, PROT_READ | PROT_WRITE);
++      if (handled) return true;
 +    }
 +  }
-+/*
-+  if (addr >= os::GLOBAL_CODE_CACHE_ADDR - os::GLOBAL_CODE_CACHE_DIFF && addr < os::GLOBAL_CODE_CACHE_ADDR) {
-+    uc->context_pc = (uint64_t)addr + os::GLOBAL_CODE_CACHE_DIFF;
-+    return 1;
-+  } else if (addr >= os::GLOBAL_CODE_CACHE_ADDR && addr < os::GLOBAL_CODE_CACHE_ADDR + os::GLOBAL_CODE_CACHE_DIFF) {
-+    // try again
-+    uc->context_pc = (uint64_t)addr - os::GLOBAL_CODE_CACHE_DIFF;
-+    return 1;
-+  }
-+*/
-+
+ 
    Thread* t = ThreadLocalStorage::get_thread_slow();
  
-   // Must do this before SignalHandlerMark, if crash protection installed we will longjmp away
+@@ -405,14 +417,14 @@ JVM_handle_bsd_signal(int sig,
+ 
+     if (pc != addr && esr == 0x9200004F) { //TODO: figure out what this value means
+       // We are faulting trying to write a R-X page
+-      pthread_jit_write_protect_np(false);
++      //pthread_jit_write_protect_np(false);
+       tty->print_cr("Writing protection violation 0x%016 unprotecting.", p2i(addr));
+       stub = pc;
+       last_addr = (address) -1;
+     } else if (pc == addr && esr == 0x8200000f) { //TODO: figure out what this value means
+       // We are faulting trying to execute a RW- page
+       if (addr != last_addr) {
+-        pthread_jit_write_protect_np(true);
++        //pthread_jit_write_protect_np(true);
+         tty->print_cr("Executing protection violation 0x%016 protecting.", p2i(addr));
+         stub = pc;
+         // Set last_addr so if we fault again at the same address, we don't end
 diff --git a/hotspot/src/os_cpu/bsd_aarch64/vm/os_bsd_aarch64.hpp b/hotspot/src/os_cpu/bsd_aarch64/vm/os_bsd_aarch64.hpp
-index 49b579d5..1344de99 100644
+index 49b579d5..8a672396 100644
 --- a/hotspot/src/os_cpu/bsd_aarch64/vm/os_bsd_aarch64.hpp
 +++ b/hotspot/src/os_cpu/bsd_aarch64/vm/os_bsd_aarch64.hpp
 @@ -26,6 +26,11 @@
@@ -457,29 +462,15 @@ index 49b579d5..1344de99 100644
    static void setup_fpu();
  
    static bool is_allocatable(size_t bytes);
-@@ -42,10 +47,18 @@
- private:
- 
+@@ -44,7 +49,7 @@ private:
    static void current_thread_enable_wx_impl(WXMode mode) {
--#pragma clang diagnostic push
--#pragma clang diagnostic ignored "-Wunguarded-availability-new"
+ #pragma clang diagnostic push
+ #pragma clang diagnostic ignored "-Wunguarded-availability-new"
 -    pthread_jit_write_protect_np(mode == WXExec ? true : false);
--#pragma clang diagnostic pop
-+// #pragma clang diagnostic push
-+// #pragma clang diagnostic ignored "-Wunguarded-availability-new"
-+    // pthread_jit_write_protect_np(mode == WXExec ? true : false);
-+    // jit_write_protect(mode == WXExec);
-+/*
-+    if (mode == WXExec) {
-+      mprotect(os::GLOBAL_CODE_CACHE_ADDR, os::GLOBAL_CODE_CACHE_SIZE, PROT_READ | PROT_EXEC);
-+    } else {
-+      mprotect(os::GLOBAL_CODE_CACHE_ADDR, os::GLOBAL_CODE_CACHE_SIZE, PROT_READ | PROT_WRITE);
-+    }
-+*/
-+// #pragma clang diagnostic pop
++    //pthread_jit_write_protect_np(mode == WXExec ? true : false);
+ #pragma clang diagnostic pop
    }
  
- public:
 diff --git a/hotspot/src/os_cpu/bsd_aarch64/vm/tcg-apple-jit.h b/hotspot/src/os_cpu/bsd_aarch64/vm/tcg-apple-jit.h
 new file mode 100644
 index 00000000..e8227412
@@ -571,22 +562,8 @@ index 00000000..e8227412
 +#endif
 +
 +#endif /* define TCG_APPLE_JIT_H */
-diff --git a/hotspot/src/share/vm/runtime/os.cpp b/hotspot/src/share/vm/runtime/os.cpp
-index 36d00f9e..76042100 100644
---- a/hotspot/src/share/vm/runtime/os.cpp
-+++ b/hotspot/src/share/vm/runtime/os.cpp
-@@ -80,6 +80,9 @@ long              os::_rand_seed          = 1;
- int               os::_processor_count    = 0;
- int               os::_initial_active_processor_count = 0;
- size_t            os::_page_sizes[os::page_sizes_max];
-+address os::GLOBAL_CODE_CACHE_ADDR = NULL;
-+uintptr_t os::GLOBAL_CODE_CACHE_DIFF = 0;
-+uint32_t os::GLOBAL_CODE_CACHE_SIZE = 0;
- 
- #ifndef PRODUCT
- julong os::num_mallocs = 0;         // # of calls to malloc/realloc
 diff --git a/hotspot/src/share/vm/runtime/os.hpp b/hotspot/src/share/vm/runtime/os.hpp
-index a2bb8804..2b49abb5 100644
+index a2bb8804..f91daacf 100644
 --- a/hotspot/src/share/vm/runtime/os.hpp
 +++ b/hotspot/src/share/vm/runtime/os.hpp
 @@ -50,6 +50,7 @@
@@ -615,31 +592,8 @@ index a2bb8804..2b49abb5 100644
      // No way to identify the primordial thread.
      { return false; }
  #else
-@@ -959,6 +960,9 @@ class os: AllStatic {
-     bool _done;
-   };
- 
-+  static address GLOBAL_CODE_CACHE_ADDR;
-+  static uintptr_t GLOBAL_CODE_CACHE_DIFF;
-+  static uint32_t GLOBAL_CODE_CACHE_SIZE;
-   // If the JVM is running in W^X mode, enable write or execute access to
-   // writeable and executable pages. No-op otherwise.
-   static inline void current_thread_enable_wx(WXMode mode) {
-diff --git a/hotspot/src/share/vm/runtime/stubRoutines.hpp b/hotspot/src/share/vm/runtime/stubRoutines.hpp
-index 746f6eac..222a664f 100644
---- a/hotspot/src/share/vm/runtime/stubRoutines.hpp
-+++ b/hotspot/src/share/vm/runtime/stubRoutines.hpp
-@@ -278,7 +278,7 @@ class StubRoutines: AllStatic {
-     TRAPS
-   );
- 
--  static CallStub call_stub()                              { return CAST_TO_FN_PTR(CallStub, _call_stub_entry); }
-+  static CallStub call_stub()                              { return CAST_TO_FN_PTR(CallStub, _call_stub_entry + os::GLOBAL_CODE_CACHE_DIFF); }
- 
-   // Exceptions
-   static address forward_exception_entry()                 { return _forward_exception_entry; }
 diff --git a/hotspot/src/share/vm/runtime/virtualspace.cpp b/hotspot/src/share/vm/runtime/virtualspace.cpp
-index 7f12ce6b..88c0d693 100644
+index 7f12ce6b..1f36e6c6 100644
 --- a/hotspot/src/share/vm/runtime/virtualspace.cpp
 +++ b/hotspot/src/share/vm/runtime/virtualspace.cpp
 @@ -41,6 +41,19 @@
@@ -662,21 +616,6 @@ index 7f12ce6b..88c0d693 100644
  #endif
  
  PRAGMA_FORMAT_MUTE_WARNINGS_FOR_GCC
-@@ -357,6 +370,14 @@ ReservedCodeSpace::ReservedCodeSpace(size_t r_size,
-                                      size_t rs_align,
-                                      bool large) :
-   ReservedSpace(r_size, rs_align, large, /*executable*/ true) {
-+
-+  os::GLOBAL_CODE_CACHE_ADDR = (address)base();
-+  os::GLOBAL_CODE_CACHE_SIZE = r_size;
-+
-+  if (!os::protect_memory(base(), r_size, os::MEM_PROT_RW)) {
-+    fatal("cannot protect protection page for jit (rw)");
-+  }
-+
-   MemTracker::record_virtual_memory_type((address)base(), mtCode);
- }
- 
 diff --git a/jdk/make/CompileLaunchers.gmk b/jdk/make/CompileLaunchers.gmk
 index 61973b3b..b2e80582 100644
 --- a/jdk/make/CompileLaunchers.gmk

@@ -1,3 +1,21 @@
+diff --git a/hotspot/make/bsd/makefiles/gcc.make b/hotspot/make/bsd/makefiles/gcc.make
+index fd94ee45..89262dbc 100644
+--- a/hotspot/make/bsd/makefiles/gcc.make
++++ b/hotspot/make/bsd/makefiles/gcc.make
+@@ -455,7 +455,12 @@ else
+   DEBUG_CFLAGS/ppc   = -g
+   DEBUG_CFLAGS += $(DEBUG_CFLAGS/$(BUILDARCH))
+   ifeq ($(DEBUG_CFLAGS/$(BUILDARCH)),)
+-  DEBUG_CFLAGS += -gstabs
++    ifeq ($(USE_CLANG), true)
++      # Clang doesn't understand -gstabs
++      DEBUG_CFLAGS += -g
++    else
++      DEBUG_CFLAGS += -gstabs
++    endif
+   endif
+   
+   ifeq ($(ENABLE_FULL_DEBUG_SYMBOLS),1)
 diff --git a/hotspot/src/share/vm/code/compiledIC.cpp b/hotspot/src/share/vm/code/compiledIC.cpp
 index 63821c06..054b86d0 100644
 --- a/hotspot/src/share/vm/code/compiledIC.cpp
