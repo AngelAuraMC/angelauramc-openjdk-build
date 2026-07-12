@@ -141,7 +141,7 @@ index 59d5b04d..b7dbb0ac 100644
    ResourceMark rm;
    CodeBuffer cb(s->entry_point(), code_length);
 diff --git a/hotspot/src/os/bsd/vm/os_bsd.cpp b/hotspot/src/os/bsd/vm/os_bsd.cpp
-index 522ea6a4..af37b2a0 100644
+index 522ea6a4..ae373aba 100644
 --- a/hotspot/src/os/bsd/vm/os_bsd.cpp
 +++ b/hotspot/src/os/bsd/vm/os_bsd.cpp
 @@ -156,6 +156,131 @@ static pid_t _initial_pid = 0;
@@ -276,6 +276,15 @@ index 522ea6a4..af37b2a0 100644
  
  ////////////////////////////////////////////////////////////////////////////////
  // utility functions
+@@ -2223,7 +2348,7 @@ bool os::pd_commit_memory(char* addr, size_t size, bool exec) {
+     return true;
+   }
+ #elif defined(__APPLE__)
+-  if (::mprotect(addr, size, prot) == 0) {
++  if ((exec && MirrorMappedCodeCache) || ::mprotect(addr, size, prot) == 0) {
+     return true;
+   }
+ #else
 @@ -2392,6 +2517,15 @@ static int anon_munmap(char * addr, size_t size) {
  char* os::pd_reserve_memory(size_t bytes, char* requested_addr,
                           size_t alignment_hint,
@@ -1369,9 +1378,27 @@ index 83ec9214..5963f347 100644
    // Constructor (only used for static in nmethod.cpp)
    // Also used by ScopeDesc::sender()]
 diff --git a/hotspot/src/share/vm/code/relocInfo.cpp b/hotspot/src/share/vm/code/relocInfo.cpp
-index 343aa043..60691756 100644
+index 343aa043..23f6c4b5 100644
 --- a/hotspot/src/share/vm/code/relocInfo.cpp
 +++ b/hotspot/src/share/vm/code/relocInfo.cpp
+@@ -50,13 +50,13 @@ relocInfo::relocInfo(relocType t, int off, int f) {
+ #endif
+ 
+ void relocInfo::initialize(CodeSection* dest, Relocation* reloc) {
+-  relocInfo* data = this+1;  // here's where the data might go
++  relocInfo* data = mirror_w(this)+1;  // here's where the data might go
+   dest->set_locs_end(data);  // sync end: the next call may read dest.locs_end
+   reloc->pack_data_to(dest); // maybe write data into locs, advancing locs_end
+-  relocInfo* data_limit = dest->locs_end();
++  relocInfo* data_limit = mirror_w(dest->locs_end());
+   if (data_limit > data) {
+-    relocInfo suffix = (*this);
+-    data_limit = this->finish_prefix((short*) data_limit);
++    relocInfo suffix = (*mirror_w(this));
++    data_limit = mirror_w(this)->finish_prefix((short*) data_limit);
+     // Finish up with the suffix.  (Hack note: pack_data_to might edit this.)
+     *data_limit = suffix;
+     dest->set_locs_end(data_limit+1);
 @@ -597,7 +597,7 @@ void trampoline_stub_Relocation::unpack_data() {
  }
  
@@ -1608,6 +1635,19 @@ index 29e76d7d..b0a74179 100644
    void* find_start(void* p) const;              // returns the block containing p or NULL
    size_t alignment_unit() const;                // alignment of any block
    size_t alignment_offset() const;              // offset of first byte of any block, within the enclosing alignment unit
+diff --git a/hotspot/src/share/vm/oops/oop.inline.hpp b/hotspot/src/share/vm/oops/oop.inline.hpp
+index beec739d..6b8fcc39 100644
+--- a/hotspot/src/share/vm/oops/oop.inline.hpp
++++ b/hotspot/src/share/vm/oops/oop.inline.hpp
+@@ -276,7 +276,7 @@ inline void oopDesc::store_heap_oop(narrowOop* p, narrowOop v)     { *p = v; }
+ inline void oopDesc::encode_store_heap_oop_not_null(narrowOop* p, oop v) {
+   *p = encode_heap_oop_not_null(v);
+ }
+-inline void oopDesc::encode_store_heap_oop_not_null(oop* p, oop v) { *p = v; }
++inline void oopDesc::encode_store_heap_oop_not_null(oop* p, oop v) { *mirror_w(p) = v; }
+ 
+ // Encode and store a heap oop allowing for null.
+ inline void oopDesc::encode_store_heap_oop(narrowOop* p, oop v) {
 diff --git a/hotspot/src/share/vm/runtime/globals.hpp b/hotspot/src/share/vm/runtime/globals.hpp
 index 5caf882e..5adf5f31 100644
 --- a/hotspot/src/share/vm/runtime/globals.hpp
