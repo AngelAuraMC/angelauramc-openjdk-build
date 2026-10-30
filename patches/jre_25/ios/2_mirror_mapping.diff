@@ -764,6 +764,15 @@ index 96b9d8c0e..7c8a53702 100644
  }
  
  //----------------------------------------------------------------------------------------------------
+@@ -763,7 +765,7 @@ UpcallStub::UpcallStub(const char* name, CodeBuffer* cb, int size, jobject recei
+ }
+ 
+ void* UpcallStub::operator new(size_t s, unsigned size) throw() {
+-  return CodeCache::allocate(size, CodeBlobType::NonNMethod);
++  return mirror_w(CodeCache::allocate(size, CodeBlobType::NonNMethod));
+ }
+ 
+ UpcallStub* UpcallStub::create(const char* name, CodeBuffer* cb, jobject receiver, ByteSize frame_data_offset) {
 @@ -784,7 +786,7 @@ UpcallStub* UpcallStub::create(const char* name, CodeBuffer* cb, jobject receive
  
    trace_new_stub(blob, "UpcallStub - ", name);
